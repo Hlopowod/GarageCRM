@@ -171,7 +171,6 @@ const LANGUAGE_OPTIONS = Object.freeze([
 const UI_TRANSLATIONS = Object.freeze({
   ru: {
     'Dashboard': 'Панель',
-    'Clients': 'Клиенты',
     'Customers': 'Клиенты',
     'Vehicles': 'Автомобили',
     'Job Cards': 'Заказы',
@@ -181,19 +180,11 @@ const UI_TRANSLATIONS = Object.freeze({
     'Calendar': 'Календарь',
     'Messages': 'Сообщения',
     'Settings': 'Настройки',
-    'Categories': 'Категории',
     'Garage': 'Гараж',
     'Bookings': 'Записи',
     'Billing': 'Оплата',
     'Account': 'Аккаунт',
     'System': 'Система',
-    'Business profile, units and VAT': 'Профиль бизнеса, единицы и VAT',
-    'Calendar slots and booking rules': 'Слоты календаря и правила записей',
-    'Show stock picker in job lines': 'Показывать склад в строках работ',
-    'SMS automation and templates': 'SMS-автоматизация и шаблоны',
-    'Plans, usage and subscription': 'Тарифы, использование и подписка',
-    'Sign in, backup and restore': 'Вход, резервная копия и восстановление',
-    'Updates and version': 'Обновления и версия',
     'Workspace': 'Рабочая область',
     'Garage setup': 'Настройка гаража',
     'Active': 'Активно',
@@ -205,7 +196,6 @@ const UI_TRANSLATIONS = Object.freeze({
     'Website': 'Сайт',
     'Company number': 'Номер компании',
     'Language': 'Язык',
-    'Interface language': 'Язык интерфейса',
     'Distance unit': 'Единица расстояния',
     'Currency': 'Валюта',
     'Miles (mi)': 'Мили (mi)',
@@ -221,13 +211,10 @@ const UI_TRANSLATIONS = Object.freeze({
     'Save changes': 'Сохранить изменения',
     'Discard': 'Отменить',
     'Calendar slot size': 'Размер слота календаря',
-    'Controls the time increments shown when booking service work.': 'Настраивает шаг времени при записи работ.',
     'Allow same-day past times': 'Разрешить прошедшее время сегодня',
-    'Keeps old times visible for manual backfilling and admin corrections.': 'Оставляет старые времена видимыми для ручного заполнения и исправлений.',
     'Save booking settings': 'Сохранить настройки записей',
     'Open calendar': 'Открыть календарь',
     'Use inventory on job lines': 'Использовать склад в строках заказа',
-    'When enabled, Labour & Parts shows an Inventory picker for part lines.': 'Если включено, в Labour & Parts появится выбор деталей со склада.',
     'Save inventory settings': 'Сохранить настройки склада',
     'Open inventory': 'Открыть склад',
     'On': 'Вкл',
@@ -269,15 +256,12 @@ const UI_TRANSLATIONS = Object.freeze({
     'Pending': 'Ожидает',
     'Confirmed': 'Подтверждено',
     'Customer': 'Клиент',
-    'Client': 'Клиент',
     'Owner': 'Владелец',
     'Vehicle': 'Автомобиль',
     'Vehicle *': 'Автомобиль *',
-    'Client *': 'Клиент *',
+    'Customer *': 'Клиент *',
     'Status': 'Статус',
-    'Action': 'Действие',
     'Actions': 'Действия',
-    'Open': 'Открыть',
     'Cancel': 'Отмена',
     'Save': 'Сохранить',
     'Delete': 'Удалить',
@@ -323,7 +307,7 @@ const UI_TRANSLATIONS = Object.freeze({
     'No engine details': 'Нет данных двигателя',
     'No active job': 'Нет активного заказа',
     'No vehicles found': 'Автомобили не найдены',
-    'No clients match this search': 'Клиенты не найдены',
+    'No customers match this search': 'Клиенты не найдены',
     'No vehicles match this search': 'Автомобили не найдены',
     'New Vehicle': 'Новый автомобиль',
     'Edit Vehicle': 'Редактировать автомобиль',
@@ -393,8 +377,6 @@ const UI_TRANSLATIONS = Object.freeze({
     'Reason': 'Причина',
     'Service': 'Сервис',
     'Slot': 'Слот',
-    'Caller': 'Звонящий',
-    'Call Summary': 'Итог звонка',
     'Full Service': 'Полный сервис',
     'Interim Service': 'Промежуточный сервис',
     'Diagnostics': 'Диагностика',
@@ -428,10 +410,10 @@ const UI_TRANSLATIONS = Object.freeze({
     'Print report': 'Печать отчёта',
     'Search by name, phone, email...': 'Поиск по имени, телефону, email...',
     'Search registration, VIN, make, model, owner...': 'Поиск по номеру, VIN, марке, модели, владельцу...',
-    'Search job #, reg, client, status...': 'Поиск по заказу, номеру, клиенту, статусу...',
-    'Search invoice #, client, status...': 'Поиск по счёту, клиенту, статусу...',
+    'Search job #, reg, customer, status...': 'Поиск по заказу, номеру, клиенту, статусу...',
+    'Search invoice #, customer, reg, status...': 'Поиск по счёту, клиенту, номеру, статусу...',
     'Search part name, SKU, category, supplier...': 'Поиск детали, SKU, категории, поставщика...',
-    'Select client…': 'Выберите клиента…',
+    'Select customer...': 'Выберите клиента...',
     'Select vehicle…': 'Выберите автомобиль…',
     'No phone': 'Нет телефона',
     'No email': 'Нет email',
@@ -450,7 +432,6 @@ const UI_TRANSLATIONS = Object.freeze({
   },
   bg: {
     'Dashboard': 'Табло',
-    'Clients': 'Клиенти',
     'Customers': 'Клиенти',
     'Vehicles': 'Автомобили',
     'Job Cards': 'Работни карти',
@@ -460,19 +441,11 @@ const UI_TRANSLATIONS = Object.freeze({
     'Calendar': 'Календар',
     'Messages': 'Съобщения',
     'Settings': 'Настройки',
-    'Categories': 'Категории',
     'Garage': 'Сервиз',
     'Bookings': 'Записвания',
     'Billing': 'Плащане',
     'Account': 'Акаунт',
     'System': 'Система',
-    'Business profile, units and VAT': 'Бизнес профил, единици и ДДС',
-    'Calendar slots and booking rules': 'Часове в календара и правила за записване',
-    'Show stock picker in job lines': 'Показване на избор от склада в работните редове',
-    'SMS automation and templates': 'SMS автоматизация и шаблони',
-    'Plans, usage and subscription': 'Планове, използване и абонамент',
-    'Sign in, backup and restore': 'Вход, архивиране и възстановяване',
-    'Updates and version': 'Актуализации и версия',
     'Workspace': 'Работно пространство',
     'Garage setup': 'Настройка на сервиза',
     'Active': 'Активно',
@@ -484,7 +457,6 @@ const UI_TRANSLATIONS = Object.freeze({
     'Website': 'Уебсайт',
     'Company number': 'Фирмен номер',
     'Language': 'Език',
-    'Interface language': 'Език на интерфейса',
     'Distance unit': 'Единица за разстояние',
     'Currency': 'Валута',
     'Miles (mi)': 'Мили (mi)',
@@ -500,13 +472,10 @@ const UI_TRANSLATIONS = Object.freeze({
     'Save changes': 'Запази промените',
     'Discard': 'Отказ',
     'Calendar slot size': 'Размер на часовия слот',
-    'Controls the time increments shown when booking service work.': 'Определя интервалите при записване на сервизни работи.',
     'Allow same-day past times': 'Разреши минали часове за днес',
-    'Keeps old times visible for manual backfilling and admin corrections.': 'Оставя старите часове видими за ръчно попълване и корекции.',
     'Save booking settings': 'Запази настройките за записвания',
     'Open calendar': 'Отвори календара',
     'Use inventory on job lines': 'Използвай склада в работните редове',
-    'When enabled, Labour & Parts shows an Inventory picker for part lines.': 'Когато е включено, Работи и части показва избор от склада за редове с части.',
     'Save inventory settings': 'Запази настройките на склада',
     'Open inventory': 'Отвори склада',
     'On': 'Вкл',
@@ -548,15 +517,12 @@ const UI_TRANSLATIONS = Object.freeze({
     'Pending': 'Изчаква',
     'Confirmed': 'Потвърдено',
     'Customer': 'Клиент',
-    'Client': 'Клиент',
     'Owner': 'Собственик',
     'Vehicle': 'Автомобил',
     'Vehicle *': 'Автомобил *',
-    'Client *': 'Клиент *',
+    'Customer *': 'Клиент *',
     'Status': 'Статус',
-    'Action': 'Действие',
     'Actions': 'Действия',
-    'Open': 'Отвори',
     'Cancel': 'Отказ',
     'Save': 'Запази',
     'Delete': 'Изтрий',
@@ -602,7 +568,7 @@ const UI_TRANSLATIONS = Object.freeze({
     'No engine details': 'Няма данни за двигателя',
     'No active job': 'Няма активна работа',
     'No vehicles found': 'Няма намерени автомобили',
-    'No clients match this search': 'Няма клиенти по това търсене',
+    'No customers match this search': 'Няма клиенти по това търсене',
     'No vehicles match this search': 'Няма автомобили по това търсене',
     'New Vehicle': 'Нов автомобил',
     'Edit Vehicle': 'Редакция на автомобил',
@@ -672,8 +638,6 @@ const UI_TRANSLATIONS = Object.freeze({
     'Reason': 'Причина',
     'Service': 'Услуга',
     'Slot': 'Час',
-    'Caller': 'Обаждащ се',
-    'Call Summary': 'Обобщение на разговора',
     'Full Service': 'Пълен сервиз',
     'Interim Service': 'Междинен сервиз',
     'Diagnostics': 'Диагностика',
@@ -707,10 +671,10 @@ const UI_TRANSLATIONS = Object.freeze({
     'Print report': 'Печат на отчет',
     'Search by name, phone, email...': 'Търсене по име, телефон, имейл...',
     'Search registration, VIN, make, model, owner...': 'Търсене по регистрация, VIN, марка, модел, собственик...',
-    'Search job #, reg, client, status...': 'Търсене по работа, регистрация, клиент, статус...',
-    'Search invoice #, client, status...': 'Търсене по фактура, клиент, статус...',
+    'Search job #, reg, customer, status...': 'Търсене по работа, регистрация, клиент, статус...',
+    'Search invoice #, customer, reg, status...': 'Търсене по фактура, клиент, регистрация, статус...',
     'Search part name, SKU, category, supplier...': 'Търсене по част, SKU, категория, доставчик...',
-    'Select client…': 'Изберете клиент…',
+    'Select customer...': 'Изберете клиент...',
     'Select vehicle…': 'Изберете автомобил…',
     'No phone': 'Няма телефон',
     'No email': 'Няма имейл',
@@ -797,13 +761,13 @@ const NAV_ITEMS = [
   { screen:'settings', path:'M8 2.6l1 .9 1.3-.4 1.1 1.9-.8 1.1.2 1.3 1.1.8-1.1 1.9-1.3-.4-1 .9H6.9l-1-.9-1.3.4-1.1-1.9 1.1-.8.2-1.3-.8-1.1 1.1-1.9 1.3.4 1-.9H8zm0 3a2.4 2.4 0 100 4.8 2.4 2.4 0 000-4.8z', label:'Settings' },
 ];
 const SETTINGS_CATEGORIES = [
-  { key: 'garage', label: 'Garage', detail: 'Business profile, units and VAT' },
-  { key: 'booking', label: 'Bookings', detail: 'Calendar slots and booking rules' },
-  { key: 'inventory', label: 'Inventory', detail: 'Show stock picker in job lines' },
-  { key: 'messages', label: 'Messages', detail: 'SMS automation and templates' },
-  { key: 'billing', label: 'Billing', detail: 'Plans, usage and subscription' },
-  { key: 'account', label: 'Account', detail: 'Sign in, backup and restore' },
-  { key: 'system', label: 'System', detail: 'Updates and version' },
+  { key: 'garage', label: 'Garage' },
+  { key: 'booking', label: 'Bookings' },
+  { key: 'inventory', label: 'Inventory' },
+  { key: 'messages', label: 'Messages' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'account', label: 'Account' },
+  { key: 'system', label: 'System' },
 ];
 const NAV_ORDER_STORAGE_KEY = 'garage-crm.nav-order';
 const BILLING_PENDING_CHECKOUT_STORAGE_KEY = 'garage-crm.billing.pending-checkout';
@@ -1342,8 +1306,8 @@ function renderMoreAction(onClick, label = 'More actions') {
   return `<button class="row-more-btn" title="${escHtml(label)}" onclick="event.stopPropagation();${onClick}">${uiIcon('more')}</button>`;
 }
 
-function renderRowActions(primaryOnClick, moreOnClick = '') {
-  return `<div class="row-actions">${renderOpenAction(primaryOnClick)}${moreOnClick ? renderMoreAction(moreOnClick) : ''}</div>`;
+function renderRowActions(primaryOnClick, moreOnClick = '', label = 'More actions') {
+  return `<div class="row-actions">${renderMoreAction(moreOnClick || primaryOnClick, label)}</div>`;
 }
 
 function isInteractiveClickTarget(target) {
@@ -2163,7 +2127,7 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
       </div>
 
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Client</div>
+        <div class="card-title" style="margin-bottom:10px">Customer</div>
         ${client ? `<div class="flex gap-8"><div class="avatar">${initials(client.name)}</div><div><div style="font-weight:500">${escHtml(client.name)}</div><div class="text-sm text-muted">${escHtml(client.phone||'')} &middot; ${escHtml(client.email||'')}</div></div></div>` : ''}
       </div>
 
@@ -2482,16 +2446,12 @@ function renderInvoiceCreateModal() {
   const selectedVehicle = state.vehicles.find(vehicle => String(vehicle.id) === String(draft.vehicleId)) || null;
   const existingInvoice = selectedJob ? getInvoiceByJobId(selectedJob.id) : null;
   const actionLabel = existingInvoice ? `Open ${existingInvoice.invoice_number}` : 'Create invoice';
-  const helperCopy = selectedJob
-    ? `Client and vehicle are pulled from Job #${selectedJob.id}.`
-    : 'Choose a job card to create an invoice linked to that work.';
   return `<div class="modal modal-wide">
     <h2>New Invoice</h2>
-    <div class="text-sm text-muted" id="invoice-create-note" style="margin-bottom:12px">${escHtml(helperCopy)}</div>
     <div class="form-grid" style="margin-bottom:12px">
-      <div class="form-row"><label>Client *</label>
+      <div class="form-row"><label>Customer *</label>
         <select id="invoice-create-client" onchange="setInvoiceCreateClient(this.value)">
-          <option value="">Select client…</option>
+          <option value="">Select customer...</option>
           ${state.clients.map(client => `<option value="${client.id}" ${String(client.id) === String(draft.clientId) ? 'selected' : ''}>${escHtml(client.name)}</option>`).join('')}
         </select>
       </div>
@@ -2513,11 +2473,11 @@ function renderInvoiceCreateModal() {
       </div>
     </div>
     <div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
-      <div style="font-weight:500">${escHtml(selectedClient?.name || 'No client selected')}</div>
+      <div style="font-weight:500">${escHtml(selectedClient?.name || 'No customer selected')}</div>
       <div class="text-sm text-muted" style="margin-top:4px">${escHtml(selectedVehicle ? `${selectedVehicle.registration} · ${selectedVehicle.make} ${selectedVehicle.model}` : 'Choose a vehicle')}</div>
       <div class="text-sm text-muted" style="margin-top:4px">${escHtml(selectedJob ? `Job #${selectedJob.id} · ${selectedJob.status || 'New'} · Opened ${fmtDate(selectedJob.date_opened)}` : 'Choose a job card to continue')}</div>
       ${existingInvoice ? `<div class="text-sm" style="margin-top:8px;color:var(--amber-text)">This job already has ${escHtml(existingInvoice.invoice_number)}. The button below will open it.</div>` : ''}
-      ${!jobs.length ? `<div class="text-sm" style="margin-top:8px;color:var(--red-text)">No job cards match this client and vehicle yet.</div>` : ''}
+      ${!jobs.length ? `<div class="text-sm" style="margin-top:8px;color:var(--red-text)">No job cards match this customer and vehicle yet.</div>` : ''}
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal()">Cancel</button>
@@ -2794,7 +2754,6 @@ const BILLING_PLAN_META = {
     kicker: 'Starter bay',
     title: 'Pit Stop',
     price: '£0',
-    description: 'For testing the system and keeping the basics organised.',
     badge: '',
     features: [
       '30 bookings',
@@ -2809,7 +2768,6 @@ const BILLING_PLAN_META = {
     kicker: 'Daily garage',
     title: 'Service Bay',
     price: '£39',
-    description: 'For garages that want reminders, updates and less manual chasing.',
     badge: 'Beginner',
     features: [
       '100 bookings',
@@ -2825,7 +2783,6 @@ const BILLING_PLAN_META = {
     kicker: 'Busy workshop',
     title: 'Full Workshop',
     price: '£69',
-    description: 'For busier garages that need more capacity and smoother workflow.',
     badge: 'Most popular',
     features: [
       '200 bookings',
@@ -2840,7 +2797,6 @@ const BILLING_PLAN_META = {
     kicker: 'Full power',
     title: 'Garage Empire',
     price: '£99',
-    description: 'For garages that want unlimited workflow and maximum automation.',
     badge: '',
     features: [
       'Unlimited bookings',
@@ -3057,7 +3013,6 @@ function renderBillingPlanCard(plan, snapshot) {
         </div>
         ${meta.badge ? `<span class="billing-plan-badge ${isPopular ? 'popular' : ''}">${escHtml(meta.badge)}</span>` : ''}
       </div>
-      <div class="billing-plan-description">${escHtml(meta.description)}</div>
       <div class="billing-price-row">
         <span>${escHtml(meta.price)}</span><small>/month</small>
       </div>
@@ -3093,7 +3048,7 @@ async function renderBilling() {
           <div>
             <div class="settings-kicker">Billing</div>
             <div class="billing-title">${escHtml(isAdmin ? 'Admin account' : `${planMeta.title} plan`)}</div>
-            <div class="billing-subtitle">${escHtml(isAdmin ? 'Free full access assigned by Garage CRM admin.' : 'Start free, then unlock more bookings, SMS automation, vehicle checks and workshop control as your garage grows.')}</div>
+            <div class="billing-subtitle">${escHtml(isAdmin ? 'Admin access' : 'Plan and usage')}</div>
           </div>
           <div class="billing-status-stack">
             ${renderPill(isAdmin ? 'admin access' : (garage?.subscription_status || 'active'), isAdmin || plan !== 'pit_stop' ? 'green' : 'gray')}
@@ -3102,12 +3057,6 @@ async function renderBilling() {
               : `<span>Period ends: <strong>${escHtml(formatBillingDate(garage?.current_period_end))}</strong></span>`}
           </div>
         </div>
-
-        ${!isAdmin && plan === 'pit_stop' ? `
-          <div class="billing-upgrade-note">
-            Service Bay unlocks SMS reminders, customer updates and 100 vehicle checks. Full Workshop increases checks, and Garage Empire removes workflow limits.
-          </div>
-        ` : ''}
 
         ${renderBillingNotice()}
 
@@ -3147,7 +3096,6 @@ async function renderBilling() {
         <div class="billing-plan-grid">
           ${BILLING_PLAN_ORDER.map(planKey => renderBillingPlanCard(planKey, snapshot)).join('')}
         </div>
-        <div class="billing-extra-note"><strong>Need more texts?</strong> Extra SMS bundles can be added anytime.</div>
       </div>
     `;
   } catch (error) {
@@ -4408,7 +4356,7 @@ function renderLegacyDashboard() {
       <div class="card">
         <div class="card-header"><span class="card-title">Today's bookings</span><span class="badge badge-gray">${todayBookings.length}</span></div>
         ${todayBookings.length === 0 ? '<div class="text-sm text-muted" style="padding:8px 0">No bookings today</div>' : `
-        <table><thead><tr><th>Time</th><th>Client</th><th>Vehicle</th><th>Reason</th><th>Status</th></tr></thead><tbody>
+        <table><thead><tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Reason</th><th>Status</th></tr></thead><tbody>
         ${todayBookings.map(b=>`<tr><td>${escHtml(b.time)}</td><td>${escHtml(b.client_name)}</td><td>${escHtml(getBookingVehicleSummary(b))}</td><td>${escHtml(b.reason)}</td><td>${statusBadge(b.status)}</td></tr>`).join('')}
         </tbody></table>`}
       </div>
@@ -4416,7 +4364,7 @@ function renderLegacyDashboard() {
     <div>
       <div class="card">
         <div class="card-header"><span class="card-title">Recent invoices</span></div>
-        <table><thead><tr><th>#</th><th>Client</th><th>Total</th><th>Status</th></tr></thead><tbody>
+        <table><thead><tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead><tbody>
         ${recentInvoices.map(i => {
           const invoiceTotal = getInvoiceTotalAmount(i);
           const paidAmount = getInvoicePaidAmount(i, invoiceTotal);
@@ -4427,7 +4375,7 @@ function renderLegacyDashboard() {
         </tbody></table>
       </div>
       <div class="card">
-        <div class="card-header"><span class="card-title">Recent clients</span></div>
+        <div class="card-header"><span class="card-title">Recent customers</span></div>
         <table><thead><tr><th>Name</th><th>Last visit</th><th>Balance</th></tr></thead><tbody>
         ${state.clients.slice(0,5).map(c=>`<tr class="clickable" onclick="openClient(${c.id})"><td>${escHtml(c.name)}</td><td>${fmtDate(c.last_visit)}</td><td class="${c.balance>0?'text-red':''}">${c.balance>0?fmt(c.balance):'—'}</td></tr>`).join('')}
         </tbody></table>
@@ -5948,7 +5896,7 @@ function ReportKpi({ label, value, sub, tone = 'blue' }) {
     <div class="report-kpi report-tone-${tone}">
       <span>${escHtml(label)}</span>
       <strong>${escHtml(value)}</strong>
-      <small>${escHtml(sub || '')}</small>
+      ${sub ? `<small>${escHtml(sub)}</small>` : ''}
     </div>
   `;
 }
@@ -5956,14 +5904,14 @@ function ReportKpi({ label, value, sub, tone = 'blue' }) {
 function renderReportSummaryCards(summary) {
   return `
     <div class="reports-summary-grid">
-      ${ReportKpi({ label: 'Total Revenue', value: fmt(summary.totalRevenue), sub: 'Invoice value in period', tone: 'blue' })}
-      ${ReportKpi({ label: 'Paid Revenue', value: fmt(summary.paidRevenue), sub: 'Collected or marked paid', tone: 'green' })}
-      ${ReportKpi({ label: 'Unpaid Revenue', value: fmt(summary.unpaidRevenue), sub: 'Still to collect', tone: 'amber' })}
-      ${ReportKpi({ label: 'Overdue Amount', value: fmt(summary.overdueAmount), sub: 'Past due date', tone: summary.overdueAmount ? 'red' : 'green' })}
-      ${ReportKpi({ label: 'Jobs Completed', value: String(summary.completedJobs), sub: 'Completed jobs', tone: 'green' })}
-      ${ReportKpi({ label: 'Total Bookings', value: String(summary.totalBookings), sub: 'Bookings in period', tone: 'blue' })}
-      ${ReportKpi({ label: 'Average Job Value', value: fmt(summary.averageJobValue), sub: 'Average invoice/job value', tone: 'blue' })}
-      ${ReportKpi({ label: 'New Customers', value: String(summary.newCustomers), sub: 'First activity in period', tone: 'green' })}
+      ${ReportKpi({ label: 'Total Revenue', value: fmt(summary.totalRevenue), tone: 'blue' })}
+      ${ReportKpi({ label: 'Paid Revenue', value: fmt(summary.paidRevenue), tone: 'green' })}
+      ${ReportKpi({ label: 'Unpaid Revenue', value: fmt(summary.unpaidRevenue), tone: 'amber' })}
+      ${ReportKpi({ label: 'Overdue Amount', value: fmt(summary.overdueAmount), tone: summary.overdueAmount ? 'red' : 'green' })}
+      ${ReportKpi({ label: 'Jobs Completed', value: String(summary.completedJobs), tone: 'green' })}
+      ${ReportKpi({ label: 'Total Bookings', value: String(summary.totalBookings), tone: 'blue' })}
+      ${ReportKpi({ label: 'Average Job Value', value: fmt(summary.averageJobValue), tone: 'blue' })}
+      ${ReportKpi({ label: 'New Customers', value: String(summary.newCustomers), tone: 'green' })}
     </div>
   `;
 }
@@ -6006,7 +5954,6 @@ function renderReportCategoryBreakdown(report) {
       <div class="card-header">
         <div>
           <span class="card-title">Category Breakdown</span>
-          <div class="dashboard-active-range">Best work categories by revenue</div>
         </div>
       </div>
       ${report.categoryBreakdown.length ? `
@@ -6101,9 +6048,9 @@ function renderReportCustomers(report) {
       <div class="card reports-panel">
         <div class="card-header"><span class="card-title">Customer Activity</span></div>
         <div class="reports-chip-grid reports-chip-grid-compact">
-          ${ReportKpi({ label: 'New customers', value: String(customerReport.newCustomers.length), sub: 'First activity', tone: 'green' })}
-          ${ReportKpi({ label: 'Returning customers', value: String(customerReport.returningCustomers.length), sub: 'Seen before', tone: 'blue' })}
-          ${ReportKpi({ label: 'Unpaid customers', value: String(customerReport.unpaidCustomers.length), sub: 'Need payment', tone: customerReport.unpaidCustomers.length ? 'amber' : 'green' })}
+          ${ReportKpi({ label: 'New customers', value: String(customerReport.newCustomers.length), tone: 'green' })}
+          ${ReportKpi({ label: 'Returning customers', value: String(customerReport.returningCustomers.length), tone: 'blue' })}
+          ${ReportKpi({ label: 'Unpaid customers', value: String(customerReport.unpaidCustomers.length), tone: customerReport.unpaidCustomers.length ? 'amber' : 'green' })}
         </div>
         ${renderReportCustomerList('New customers in selected period', customerReport.newCustomers)}
         ${renderReportCustomerList('Returning customers', customerReport.returningCustomers)}
@@ -6119,10 +6066,10 @@ function renderReportJobs(report) {
     <div class="card reports-panel">
       <div class="card-header"><span class="card-title">Jobs Report</span></div>
       <div class="reports-chip-grid">
-        ${ReportKpi({ label: 'Completed jobs', value: String(jobs.completed), sub: 'Done in period', tone: 'green' })}
-        ${ReportKpi({ label: 'Cancelled jobs', value: String(jobs.cancelled), sub: 'Cancelled in period', tone: jobs.cancelled ? 'red' : 'green' })}
-        ${ReportKpi({ label: 'Open jobs', value: String(jobs.open), sub: 'Still active', tone: 'blue' })}
-        ${ReportKpi({ label: 'Average job value', value: fmt(jobs.averageJobValue), sub: 'Jobs in period', tone: 'amber' })}
+        ${ReportKpi({ label: 'Completed jobs', value: String(jobs.completed), tone: 'green' })}
+        ${ReportKpi({ label: 'Cancelled jobs', value: String(jobs.cancelled), tone: jobs.cancelled ? 'red' : 'green' })}
+        ${ReportKpi({ label: 'Open jobs', value: String(jobs.open), tone: 'blue' })}
+        ${ReportKpi({ label: 'Average job value', value: fmt(jobs.averageJobValue), tone: 'amber' })}
       </div>
       <div class="reports-two-grid reports-table-gap">
         <div>
@@ -6178,8 +6125,7 @@ function renderReports() {
     <div class="reports-shell">
       <div class="reports-toolbar">
         <div>
-          <div class="dashboard-eyebrow">Business reports</div>
-          <h1>${escHtml(getGarageName())} Reports</h1>
+          <h1>Reports</h1>
           <div class="reports-period">${escHtml(report.range.label)}</div>
         </div>
         <div class="reports-actions">
@@ -6420,7 +6366,7 @@ function renderInventory() {
       <div class="card data-table-card">
         <div class="table-scroll">
           <table class="data-table inventory-table">
-            <thead><tr>${SortableTh('inventory','part','Part')}${SortableTh('inventory','sku','SKU')}${SortableTh('inventory','qty','Stock')}${SortableTh('inventory','sell','Pricing')}${SortableTh('inventory','value','Stock value')}${SortableTh('inventory','supplier','Supplier')}${SortableTh('inventory','status','Status')}<th>Action</th></tr></thead>
+            <thead><tr>${SortableTh('inventory','part','Part')}${SortableTh('inventory','sku','SKU')}${SortableTh('inventory','qty','Stock')}${SortableTh('inventory','sell','Pricing')}${SortableTh('inventory','value','Stock value')}${SortableTh('inventory','supplier','Supplier')}${SortableTh('inventory','status','Status')}<th>Actions</th></tr></thead>
             <tbody>
               ${list.length === 0 ? renderEmptyTableRow(8, 'No inventory items found') : ''}
               ${list.map(item => `
@@ -7423,7 +7369,6 @@ function renderMessageKpiCard({ label, value, hint = '', filter = 'all', active 
     <button type="button" class="message-kpi ${tone ? `is-${tone}` : ''} ${active ? 'is-active' : ''}" onclick="setMessageQuickFilter('${filter}')">
       <span>${escHtml(label)}</span>
       <strong>${escHtml(String(value))}</strong>
-      ${hint ? `<small>${escHtml(hint)}</small>` : ''}
     </button>
   `;
 }
@@ -7583,21 +7528,11 @@ function renderMessages() {
   const serviceDueActions = actions.filter(action => action.category === 'service_reminder' && isMessageActionDueSoon(action));
   const overdueMotActions = actions.filter(action => action.category === 'mot_reminder' && isMessageActionOverdue(action));
   const overdueServiceActions = actions.filter(action => action.category === 'service_reminder' && isMessageActionOverdue(action));
-  const autoReadyNow = autoStageDueNow.filter(action => action.normalizedPhone).length;
-  const autoMissingPhoneNow = autoStageDueNow.length - autoReadyNow;
-  const autoStageCopy = autoStagePending.length
-    ? `${autoStagePending.length} automatic stage reminder${autoStagePending.length === 1 ? '' : 's'} pending`
-    : 'No automatic stage reminders pending';
-  const autoReadyCopy = autoStageDueNow.length
-    ? `${autoReadyNow} ready now${autoMissingPhoneNow ? `, ${autoMissingPhoneNow} missing phone` : ''}`
-    : `auto send time ${normalizeReminderSendTime(getMessageSettings().automatic_reminder_time)}`;
-
   return `
     <div class="messages-shell">
       <div class="messages-toolbar">
         <div>
-          <div class="dashboard-eyebrow">Customer Messages</div>
-          <h1>SMS reminders and collection updates</h1>
+          <h1>Messages</h1>
         </div>
         <div class="messages-toolbar-actions">
           <button class="btn btn-primary" onclick="showSmsComposeModal()">+ New SMS</button>
@@ -7607,7 +7542,7 @@ function renderMessages() {
       <div class="message-kpi-grid">
         ${renderMessageKpiCard({ label: 'SMS status', value: getMessageSettings().sms_enabled && configured ? 'Enabled' : getSmsProviderStatusLabel(), hint: 'Show all', filter: 'all', active: quickFilter === 'all' && activeFilter === 'all' })}
         ${renderMessageKpiCard({ label: 'Ready', value: readyActions.length, hint: 'Can send now', filter: 'ready', active: quickFilter === 'ready' })}
-        ${renderMessageKpiCard({ label: 'Auto stages', value: autoStagePending.length, hint: autoReadyCopy, filter: 'auto_stage', active: quickFilter === 'auto_stage' })}
+        ${renderMessageKpiCard({ label: 'Auto stages', value: autoStagePending.length, filter: 'auto_stage', active: quickFilter === 'auto_stage' })}
         ${renderMessageKpiCard({ label: 'Sent today', value: sentToday, hint: 'History', filter: 'sent_today', active: quickFilter === 'sent_today' })}
         ${renderMessageKpiCard({ label: 'Failed', value: failed, hint: 'History', filter: 'failed', active: quickFilter === 'failed', tone: failed ? 'danger' : '' })}
         ${renderMessageKpiCard({ label: 'MOT due', value: motDueActions.length || reminderCounts.motDueSoon, hint: 'Due soon', filter: 'mot_due', active: quickFilter === 'mot_due' })}
@@ -7619,7 +7554,7 @@ function renderMessages() {
         <div class="message-queue-head">
           <div>
             <div class="card-title">Reminder queue</div>
-            <div class="entity-subtitle">${filteredActions.length} item${filteredActions.length === 1 ? '' : 's'} in ${escHtml(getMessageQuickFilterLabel(quickFilter).toLowerCase())} · ${escHtml(autoStageCopy)} · ${escHtml(autoReadyCopy)}</div>
+            <div class="entity-subtitle">${filteredActions.length} item${filteredActions.length === 1 ? '' : 's'} in ${escHtml(getMessageQuickFilterLabel(quickFilter).toLowerCase())}</div>
           </div>
           ${renderMessageFilterControls(activeFilter, counts)}
         </div>
@@ -7766,7 +7701,7 @@ function showSmsComposeModal(actionId = '', options = {}) {
     <input id="sms-reminder-stage" type="hidden" value="${escHtml(composeAction?.reminderStage || '')}" />
     <input id="sms-scheduled-for" type="hidden" value="${escHtml(composeAction?.dateValue || '')}" />
     <div class="form-grid">
-      <div class="form-row"><label>Client</label>
+      <div class="form-row"><label>Customer</label>
         <select id="sms-client" onchange="prefillSmsRecipient(this.value)">
           <option value="">Manual recipient</option>
           ${state.clients.map(client => `<option value="${client.id}" ${String(selectedClientId) === String(client.id) ? 'selected' : ''}>${escHtml(client.name)} - ${escHtml(client.phone || 'No phone')}</option>`).join('')}
@@ -8054,7 +7989,7 @@ function renderClients() {
 }
 function renderClientProfile() {
   const c = state.clients.find(x => x.id === state.selectedClient);
-  if (!c) return '<p>Client not found</p>';
+  if (!c) return '<p>Customer not found</p>';
   const vehs = state.vehicles.filter(v => v.client_id === c.id);
   const jobs = state.jobs.filter(j => j.client_id === c.id);
   const bookings = getClientBookings(c.id);
@@ -8063,7 +7998,7 @@ function renderClientProfile() {
   const balance = invs.reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice, getInvoiceTotalAmount(invoice)), 0);
   const smsHistory = getSmsHistoryForEntity({ customerId: c.id });
   return `
-  <button class="btn back-btn" onclick="state.selectedClient=null;nav('clients')">← Back to clients</button>
+  <button class="btn back-btn" onclick="state.selectedClient=null;nav('clients')">← Back to customers</button>
   <div class="two-col">
     <div>
       <div class="card">
@@ -8105,7 +8040,7 @@ function renderClientProfile() {
       <div class="card-header"><span class="card-title">History</span></div>
       <div class="card-title" style="margin-bottom:10px">Booking history</div>
       ${bookings.length === 0 ? '<div class="empty-state">No bookings yet</div>' : `
-      <table><thead><tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Service</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      <table><thead><tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Service</th><th>Status</th><th>Actions</th></tr></thead><tbody>
       ${bookings.map(b=>`<tr class="clickable" onclick="showBookingModal(${b.id})"><td>${fmtDate(b.date)}</td><td>${escHtml(b.time||'-')}</td><td>${escHtml(b.registration||'-')}</td><td>${escHtml((b.reason||'').slice(0,45)||'-')}</td><td>${statusBadge(b.status)}</td><td><div class="row-actions"><button class="btn btn-sm" onclick="event.stopPropagation();showBookingModal(${b.id})">Edit</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteBooking(${b.id})">Delete</button></div></td></tr>`).join('')}
       </tbody></table>`}
       <div class="card-title" style="margin:18px 0 10px;padding-top:18px;border-top:0.5px solid var(--border)">Work history</div>
@@ -8146,7 +8081,7 @@ function renderVehicles() {
   </div>
   <div class="card data-table-card">
     <div class="table-scroll">
-    <table class="data-table vehicles-table"><thead><tr>${SortableTh('vehicles','make_model','Vehicle')}${SortableTh('vehicles','owner','Owner')}${SortableTh('vehicles','mileage','Details')}${SortableTh('vehicles','mot_due','MOT due')}${SortableTh('vehicles','service_due','Service due')}${SortableTh('vehicles','active_job','Active job')}<th>Action</th></tr></thead><tbody>
+    <table class="data-table vehicles-table"><thead><tr>${SortableTh('vehicles','make_model','Vehicle')}${SortableTh('vehicles','owner','Owner')}${SortableTh('vehicles','mileage','Details')}${SortableTh('vehicles','mot_due','MOT due')}${SortableTh('vehicles','service_due','Service due')}${SortableTh('vehicles','active_job','Active job')}<th>Actions</th></tr></thead><tbody>
     ${list.length === 0 ? renderEmptyTableRow(7, 'No vehicles found') : ''}
     ${list.map(v => {
       const job = state.jobs.find(j => j.vehicle_id === v.id && !['Completed','Cancelled'].includes(j.status));
@@ -8158,7 +8093,7 @@ function renderVehicles() {
         <td><div class="date-cell">${renderIconMeta('calendar', fmtDate(v.mot_due), 'No MOT date')}${motSoon ? '<div class="entity-subtitle text-red">Due soon</div>' : ''}</div></td>
         <td><div class="date-cell">${renderIconMeta('calendar', fmtDate(v.service_due), 'No service date')}</div></td>
         <td>${job ? statusBadge(job.status) : renderPill('No active job', 'gray')}</td>
-        <td><div class="row-actions">${renderOpenAction(v.client_id ? `openClient(${v.client_id})` : `showVehicleModal(${v.id})`)}</div></td>
+        <td>${renderRowActions(v.client_id ? `openClient(${v.client_id})` : `showVehicleModal(${v.id})`, `showVehicleModal(${v.id})`)}</td>
       </tr>`;
     }).join('')}
     </tbody></table>
@@ -8210,17 +8145,15 @@ function renderJobs() {
     opened: j => j.date_opened,
     total: j => j.subtotal || 0,
   });
-  const activeBookingCount = getJobSourceBookings().filter(booking => !getJobByBookingId(booking.id)).length;
   return `
   <div class="search-bar job-search-bar">
-    <input id="search-input" type="text" placeholder="Search job #, reg, client, status..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
+    <input id="search-input" type="text" placeholder="Search job #, reg, customer, status..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
     ${renderJobStatusFilterControls(activeFilter, counts)}
-    <button class="btn btn-primary" onclick="showJobModal()">${activeBookingCount ? `+ From booking (${activeBookingCount})` : '+ New job'}</button>
-    <button class="btn" onclick="showJobModal(null,{mode:'direct'})">+ Direct job</button>
+    <button class="btn btn-primary" onclick="showJobModal()">+ New job</button>
   </div>
   <div class="card data-table-card">
     <div class="table-scroll">
-    <table class="data-table jobs-table"><thead><tr>${SortableTh('jobs','job','Job')}${SortableTh('jobs','client','Client')}${SortableTh('jobs','vehicle','Vehicle')}${SortableTh('jobs','source','Source')}${SortableTh('jobs','status','Status')}${SortableTh('jobs','opened','Opened')}${SortableTh('jobs','total','Total')}<th>Action</th></tr></thead><tbody>
+    <table class="data-table jobs-table"><thead><tr>${SortableTh('jobs','job','Job')}${SortableTh('jobs','client','Customer')}${SortableTh('jobs','vehicle','Vehicle')}${SortableTh('jobs','source','Source')}${SortableTh('jobs','status','Status')}${SortableTh('jobs','opened','Opened')}${SortableTh('jobs','total','Total')}<th>Actions</th></tr></thead><tbody>
     ${list.length === 0 ? renderEmptyTableRow(8, q ? 'No jobs match this search' : 'No jobs in this view') : ''}
     ${list.map(j=>`
     <tr class="clickable" onclick="openJob(${j.id})">
@@ -8311,7 +8244,7 @@ async function renderJobCard() {
 
     <div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Client</div>
+        <div class="card-title" style="margin-bottom:10px">Customer</div>
         ${client ? `<div class="flex gap-8"><div class="avatar">${initials(client.name)}</div><div><div style="font-weight:500">${escHtml(client.name)}</div><div class="text-sm text-muted">${escHtml(client.phone||'')} · ${escHtml(client.email||'')}</div></div></div>` : ''}
       </div>
       <div class="card">
@@ -8359,11 +8292,11 @@ async function renderInvoices() {
   const collected = state.invoices.reduce((sum, invoice) => sum + getInvoicePaidAmount(invoice, getInvoiceTotalAmount(invoice)), 0);
   return `
   <div class="search-bar">
-    <input id="search-input" type="text" placeholder="Search invoice #, client, status..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
+    <input id="search-input" type="text" placeholder="Search invoice #, customer, reg, status..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
   </div>
   <div class="card data-table-card">
     <div class="table-scroll">
-    <table class="data-table invoices-table"><thead><tr>${SortableTh('invoices','number','Invoice')}${SortableTh('invoices','client','Client')}${SortableTh('invoices','vehicle','Vehicle')}${SortableTh('invoices','total','Total')}${SortableTh('invoices','status','Status')}${SortableTh('invoices','due','Due')}${'<th>Action</th>'}</tr></thead><tbody>
+    <table class="data-table invoices-table"><thead><tr>${SortableTh('invoices','number','Invoice')}${SortableTh('invoices','client','Customer')}${SortableTh('invoices','vehicle','Vehicle')}${SortableTh('invoices','total','Total')}${SortableTh('invoices','status','Status')}${SortableTh('invoices','due','Due')}${'<th>Actions</th>'}</tr></thead><tbody>
       ${list.length === 0 ? renderEmptyTableRow(7, 'No invoices yet') : ''}
       ${list.map(i=>{
         const invoiceTotal = getInvoiceTotalAmount(i);
@@ -8408,7 +8341,6 @@ function renderInvoiceEditor(inv) {
     <div class="card-header" style="margin-bottom:12px;align-items:flex-start">
       <div>
         <span class="card-title">Edit Invoice</span>
-        <div class="text-sm text-muted" style="margin-top:4px">This invoice stays linked to Job #${inv.job_id}, so line item edits update the job card too.</div>
         <div class="text-sm text-muted print-hide" id="invoice-editor-save-note" style="margin-top:6px">${escHtml(syncMeta.note)}</div>
       </div>
     </div>
@@ -8697,10 +8629,6 @@ function getSettingsCategoryBadge(category) {
 function renderSettingsSubmenu(activeCategory) {
   return `
     <aside class="settings-submenu" aria-label="Settings categories">
-      <div class="settings-submenu-head">
-        <div class="settings-kicker">Settings</div>
-        <div class="settings-title">Categories</div>
-      </div>
       <div class="settings-submenu-list">
         ${SETTINGS_CATEGORIES.map(category => {
           const active = category.key === activeCategory;
@@ -8713,7 +8641,7 @@ function renderSettingsSubmenu(activeCategory) {
             >
               <span class="settings-submenu-copy">
                 <span class="settings-submenu-label">${escHtml(category.label)}</span>
-                <span class="settings-submenu-detail">${escHtml(category.detail)}</span>
+                ${category.detail ? `<span class="settings-submenu-detail">${escHtml(category.detail)}</span>` : ''}
               </span>
               <span class="settings-submenu-badge">${escHtml(getSettingsCategoryBadge(category.key))}</span>
             </button>
@@ -8742,7 +8670,6 @@ function renderGarageSettingsCard() {
         </div>
         <span class="badge ${signedIn ? 'badge-green' : 'badge-amber'}">${signedIn ? 'Active' : 'Locked'}</span>
       </div>
-      ${setupMode ? `<div class="auth-note auth-note-blue" style="margin:0 0 14px">Add the garage details used on invoices, SMS messages and reports.</div>` : ''}
       <div class="form-row">
         <label>Garage name</label>
         <input id="settings-garage-name" type="text" value="${escHtml(settings.garage_name)}" placeholder="Garage name" />
@@ -8790,10 +8717,6 @@ function renderGarageSettingsCard() {
         <div class="form-row">
           <label>Currency</label>
           <input id="settings-currency" type="text" value="${escHtml(currency)}" maxlength="3" placeholder="GBP" style="text-transform:uppercase" />
-        </div>
-        <div class="form-row">
-          <label>Interface language</label>
-          <input type="text" value="${escHtml(LANGUAGE_OPTIONS.find(option => option.value === language)?.label || 'English')}" readonly />
         </div>
       </div>
       <div class="form-grid">
@@ -8847,7 +8770,6 @@ function renderBookingSettingsCard() {
         <div class="settings-option-row">
           <div class="settings-option-copy">
             <div class="settings-option-title">Calendar slot size</div>
-            <div class="settings-option-detail">Controls the time increments shown when booking service work.</div>
           </div>
           <select id="settings-booking-slot-interval">
             <option value="60" ${slotInterval === 60 ? 'selected' : ''}>${uiText('1 hour')}</option>
@@ -8857,7 +8779,6 @@ function renderBookingSettingsCard() {
         <label class="settings-option-row settings-option-toggle">
           <span class="settings-option-copy">
             <span class="settings-option-title">Allow same-day past times</span>
-            <span class="settings-option-detail">Keeps old times visible for manual backfilling and admin corrections.</span>
           </span>
           <input id="settings-allow-past-booking-times" type="checkbox" ${allowPastBookingTimes ? 'checked' : ''} />
         </label>
@@ -8885,7 +8806,6 @@ function renderInventorySettingsCard() {
         <label class="settings-option-row settings-option-toggle">
           <span class="settings-option-copy">
             <span class="settings-option-title">Use inventory on job lines</span>
-            <span class="settings-option-detail">When enabled, Labour &amp; Parts shows an Inventory picker for part lines.</span>
           </span>
           <input id="settings-inventory-enabled" type="checkbox" ${inventoryEnabled ? 'checked' : ''} />
         </label>
@@ -9462,8 +9382,8 @@ function renderBookingFlowModal() {
   const slotBookingCount = getSlotBookingCount(draft.date, draft.time);
   const slotTimePassed = Boolean(draft.time) && !canBookTime(draft.date, draft.time);
   const summaryClient = draft.clientMode === 'existing'
-    ? (selectedClient ? selectedClient.name : 'Choose or search a client')
-    : (draft.clientName || 'Unknown customer / new caller');
+    ? (selectedClient ? selectedClient.name : 'Choose or search a customer')
+    : (draft.clientName || 'Unknown customer');
   const summaryVehicle = draft.vehicleMode === 'existing'
     ? (selectedVehicle ? `${selectedVehicle.registration} — ${selectedVehicle.make} ${selectedVehicle.model}`.trim() : 'Choose a vehicle')
     : (draft.vehicleRegistration || 'New vehicle details');
@@ -9473,25 +9393,23 @@ function renderBookingFlowModal() {
   <div class="modal booking-flow-modal">
     <div class="booking-flow-head booking-flow-head-modal">
       <div>
-        <div class="booking-eyebrow">Calendar Intake</div>
-        <h2>Book Service</h2>
-        <div class="booking-flow-copy">Use one flow for the whole phone call: caller, vehicle, service, slot.</div>
+        <h2>New booking</h2>
       </div>
       <div class="booking-slot-state ${slotTimePassed || slotBookingCount ? 'is-busy' : 'is-free'}">${slotTimePassed ? 'Past time blocked' : (slotBookingCount ? `${slotBookingCount} booking${slotBookingCount === 1 ? '' : 's'} at this time` : 'No bookings yet')} · ${fmtDate(draft.date)} ${escHtml(draft.time || '-')}</div>
     </div>
     <div class="booking-step-strip booking-step-strip-modal">
-      <div class="booking-step-card"><div class="booking-step-num">1</div><div><div class="booking-step-title">Caller</div><div class="text-sm text-muted">Search or create</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">2</div><div><div class="booking-step-title">Vehicle</div><div class="text-sm text-muted">Select or add</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">3</div><div><div class="booking-step-title">Service</div><div class="text-sm text-muted">Type, slot, notes</div></div></div>
+      <div class="booking-step-card"><div class="booking-step-num">1</div><div><div class="booking-step-title">Customer</div></div></div>
+      <div class="booking-step-card"><div class="booking-step-num">2</div><div><div class="booking-step-title">Vehicle</div></div></div>
+      <div class="booking-step-card"><div class="booking-step-num">3</div><div><div class="booking-step-title">Service</div></div></div>
     </div>
     <div class="booking-flow-grid">
       <div>
         <div class="booking-panel">
           <div class="booking-panel-head">
-            <span class="card-title">1. Caller</span>
+            <span class="card-title">1. Customer</span>
             <div class="segmented">
-              <button class="btn btn-sm ${draft.clientMode === 'existing' ? 'btn-primary' : ''}" onclick="setBookingClientMode('existing')">Find Existing</button>
-              <button class="btn btn-sm ${draft.clientMode === 'new' ? 'btn-primary' : ''}" onclick="setBookingClientMode('new')">New Caller</button>
+              <button class="btn btn-sm ${draft.clientMode === 'existing' ? 'btn-primary' : ''}" onclick="setBookingClientMode('existing')">Find customer</button>
+              <button class="btn btn-sm ${draft.clientMode === 'new' ? 'btn-primary' : ''}" onclick="setBookingClientMode('new')">New customer</button>
             </div>
           </div>
           ${draft.clientMode === 'existing' ? `
@@ -9499,19 +9417,19 @@ function renderBookingFlowModal() {
               <div class="choice-card active">
                 <div class="choice-title">${escHtml(selectedClient.name)}</div>
                 <div class="text-sm text-muted">${escHtml(selectedClient.phone || 'No phone')} · ${escHtml(selectedClient.email || 'No email')}</div>
-                <div class="choice-actions"><button class="btn btn-sm" onclick="clearBookingClientSelection()">Change search</button><button class="btn btn-sm" onclick="setBookingClientMode('new')">New caller</button></div>
+                <div class="choice-actions"><button class="btn btn-sm" onclick="clearBookingClientSelection()">Change</button><button class="btn btn-sm" onclick="setBookingClientMode('new')">New customer</button></div>
               </div>
             ` : `
               <div class="form-row">
-                <label>Search by phone, name or registration</label>
+                <label>Search phone, name or registration</label>
                 <input id="bf-search" type="text" value="${escHtml(draft.search)}" placeholder="e.g. 077..., John Smith, AB12 CDE" oninput="updateBookingSearch(this.value)" />
               </div>
-              ${draft.search ? `<div class="booking-search-meta">Matches: ${searchResults.clients.length} client(s), ${searchResults.vehicles.length} vehicle(s)</div>` : ''}
+              ${draft.search ? `<div class="booking-search-meta">${searchResults.clients.length} customer(s), ${searchResults.vehicles.length} vehicle(s)</div>` : ''}
               ${draft.search ? `
                 <div class="booking-match-grid">
                   ${searchResults.clients.length ? `
                     <div>
-                      <div class="booking-match-title">Clients</div>
+                      <div class="booking-match-title">Customers</div>
                       <div class="booking-match-list">
                         ${searchResults.clients.map(c => `<button class="choice-card choice-card-button" onclick="selectBookingClient(${c.id})"><div class="choice-title">${escHtml(c.name)}</div><div class="text-sm text-muted">${escHtml(c.phone || 'No phone')}</div></button>`).join('')}
                       </div>
@@ -9526,23 +9444,22 @@ function renderBookingFlowModal() {
                     </div>
                   ` : ''}
                 </div>
-              ` : '<div class="booking-empty">Start typing to find an existing client or vehicle. If nothing matches, switch to <strong>New Caller</strong>.</div>'}
+              ` : '<div class="booking-empty">Search or create a new customer.</div>'}
               ${draft.search && !searchResults.clients.length && !searchResults.vehicles.length ? `
                 <div class="booking-empty">
-                  No matches found. Create the caller now and keep the phone call moving.
-                  <div class="choice-actions"><button class="btn btn-sm btn-primary" onclick="setBookingClientMode('new')">Create new caller</button></div>
+                  No matches found.
+                  <div class="choice-actions"><button class="btn btn-sm btn-primary" onclick="setBookingClientMode('new')">Create customer</button></div>
                 </div>
               ` : ''}
             `}
           ` : `
             <div class="form-grid">
-              <div class="form-row"><label>Client name</label><input id="bf-client-name" type="text" value="${escHtml(draft.clientName)}" oninput="state.bookingDraft.clientName=this.value" /></div>
+              <div class="form-row"><label>Customer name</label><input id="bf-client-name" type="text" value="${escHtml(draft.clientName)}" oninput="state.bookingDraft.clientName=this.value" /></div>
               <div class="form-row"><label>Phone</label><input id="bf-client-phone" type="text" value="${escHtml(draft.clientPhone)}" oninput="state.bookingDraft.clientPhone=this.value" /></div>
               <div class="form-row"><label>Email</label><input id="bf-client-email" type="email" value="${escHtml(draft.clientEmail)}" oninput="state.bookingDraft.clientEmail=this.value" /></div>
               <div class="form-row"><label>Company</label><input id="bf-client-company" type="text" value="${escHtml(draft.clientCompany)}" oninput="state.bookingDraft.clientCompany=this.value" /></div>
             </div>
-            <div class="form-row"><label>Caller notes</label><textarea id="bf-client-notes" oninput="state.bookingDraft.clientNotes=this.value">${escHtml(draft.clientNotes)}</textarea></div>
-            <div class="booking-empty compact">Leave caller details blank if only the vehicle is known.</div>
+            <div class="form-row"><label>Customer notes</label><textarea id="bf-client-notes" oninput="state.bookingDraft.clientNotes=this.value">${escHtml(draft.clientNotes)}</textarea></div>
           `}
         </div>
 
@@ -9565,7 +9482,7 @@ function renderBookingFlowModal() {
               <div class="choice-grid">
                 ${vehicleChoices.map(v => `<button class="choice-card choice-card-button" onclick="selectBookingVehicle(${v.id})"><div class="choice-title">${escHtml(v.registration)}</div><div class="text-sm text-muted">${escHtml(`${v.make} ${v.model}`.trim() || 'Vehicle')}</div></button>`).join('')}
               </div>
-            ` : (!selectedVehicle ? '<div class="booking-empty">Pick a caller first. If this is a new car, use <strong>Add Vehicle</strong>.</div>' : '')}
+            ` : (!selectedVehicle ? '<div class="booking-empty">Choose a customer or add a vehicle.</div>' : '')}
           ` : `
             <div class="form-grid">
               <div class="form-row">
@@ -9580,7 +9497,6 @@ function renderBookingFlowModal() {
               <div class="form-row"><label>Model (optional)</label><input id="bf-vehicle-model" type="text" value="${escHtml(draft.vehicleModel)}" oninput="state.bookingDraft.vehicleModel=this.value" /></div>
               <div class="form-row"><label>Year</label><input id="bf-vehicle-year" type="number" value="${escHtml(draft.vehicleYear)}" oninput="state.bookingDraft.vehicleYear=this.value" /></div>
             </div>
-            <div class="booking-empty compact">Minimum useful path for a phone call: registration now, the rest can be filled in later.</div>
           `}
         </div>
 
@@ -9621,9 +9537,9 @@ function renderBookingFlowModal() {
 
       <div>
         <div class="booking-panel booking-summary-panel">
-          <div class="card-title">Call Summary</div>
+          <div class="card-title">Summary</div>
           <div class="booking-summary-list">
-            <div class="booking-summary-item"><span class="booking-summary-label">Caller</span><strong>${escHtml(summaryClient)}</strong></div>
+            <div class="booking-summary-item"><span class="booking-summary-label">Customer</span><strong>${escHtml(summaryClient)}</strong></div>
             <div class="booking-summary-item"><span class="booking-summary-label">Vehicle</span><strong>${escHtml(summaryVehicle)}</strong></div>
             <div class="booking-summary-item"><span class="booking-summary-label">Service</span><strong>${escHtml(summaryReason)}</strong></div>
             <div class="booking-summary-item"><span class="booking-summary-label">Slot</span><strong>${fmtDate(draft.date)} · ${escHtml(draft.time)}</strong></div>
@@ -9694,7 +9610,7 @@ async function saveBookingFlow() {
       clientId = await getOrCreateUnknownCustomer();
       smsClient = getClientById(clientId) || getUnknownCustomerFallback(clientId);
     }
-    if (!clientId) { alert('Select an existing client, create a caller, or add a vehicle registration.'); return; }
+    if (!clientId) { alert('Select an existing customer, create a customer, or add a vehicle registration.'); return; }
     smsClient = smsClient || getClientById(clientId);
 
     let vehicleId = draft.selectedVehicleId;
@@ -9760,7 +9676,7 @@ function showClientModal(clientId, { persist = true } = {}) {
   const c = clientId ? state.clients.find(x=>x.id===clientId) : null;
   const persistState = persist ? { kind: 'client', clientId: clientId || null } : state.modalState;
   showModal(`<div class="modal">
-    <h2>${c ? 'Edit Client' : 'New Client'}</h2>
+    <h2>${c ? 'Edit Customer' : 'New Customer'}</h2>
     <div class="form-grid">
       <div class="form-row"><label>Full name *</label><input id="c-name" type="text" value="${escHtml(c?.name||'')}" /></div>
       <div class="form-row"><label>Phone</label><input id="c-phone" type="text" value="${escHtml(c?.phone||'')}" /></div>
@@ -9792,7 +9708,7 @@ async function saveClient(clientId) {
   const savedClientId = await invoke('save_client', { client });
   await syncAfterCloudMutation();
   closeModal();
-  toast('Client saved');
+  toast('Customer saved');
 
   if (!clientId) {
     await openClient(savedClientId);
@@ -9804,11 +9720,11 @@ async function saveClient(clientId) {
 }
 
 async function deleteClient(id) {
-  if (!confirm('Delete this client? Owned vehicles will also be deleted if they are not used in jobs or bookings.')) return;
+  if (!confirm('Delete this customer? Owned vehicles will also be deleted if they are not used in jobs or bookings.')) return;
   try {
     await invoke('delete_client', { id });
     await syncAfterCloudMutation();
-    closeModal(); state.selectedClient = null; toast('Client deleted'); render();
+    closeModal(); state.selectedClient = null; toast('Customer deleted'); render();
   } catch (error) {
     alert(String(error));
   }
@@ -10223,9 +10139,9 @@ function showLegacyJobModal(jobId, presetClientId) {
   showModal(`<div class="modal modal-wide">
     <h2>${j ? 'Edit Job Card' : 'New Job Card'}</h2>
     <div class="form-grid">
-      <div class="form-row"><label>Client *</label>
+      <div class="form-row"><label>Customer *</label>
         <select id="j-client" onchange="filterVehiclesForClient(this.value)">
-          <option value="">Select client…</option>
+          <option value="">Select customer...</option>
           ${state.clients.map(c=>`<option value="${c.id}" ${(j?.client_id===c.id||presetClientId===c.id)?'selected':''}>${escHtml(c.name)}</option>`).join('')}
         </select>
       </div>
@@ -10407,7 +10323,6 @@ function renderJobSourcePanel({ mode, booking, sourceBookings }) {
       <div class="job-source-head">
         <div>
           <div class="job-source-title">Job source</div>
-          <div class="text-sm text-muted">Use a booking when one exists, or create a direct job for walk-ins and urgent work.</div>
         </div>
         <div class="segmented">
           <button class="btn btn-sm ${mode === 'booking' ? 'btn-primary' : ''}" onclick="showJobModal(null,{mode:'booking'})" type="button">From booking</button>
@@ -10418,10 +10333,10 @@ function renderJobSourcePanel({ mode, booking, sourceBookings }) {
         ${sourceBookings.length ? `
           ${renderJobBookingPicker({ booking })}
         ` : `
-          <div class="booking-empty compact">No active bookings are available. Use <strong>Direct</strong> to create a job from a client and vehicle.</div>
+          <div class="booking-empty compact">No active bookings</div>
         `}
       ` : `
-        <div class="booking-empty compact">Direct jobs are for work that has no booking yet. Pick the client and vehicle below.</div>
+        <div class="booking-empty compact">Direct job</div>
       `}
     </div>
   `;
@@ -10597,7 +10512,7 @@ function resolveJobVehicleFromInput(clientId = null) {
 
 function renderJobClientTypeaheadResults(query = '', selectedClientId = '') {
   const matches = getJobClientMatches(query);
-  if (!matches.length) return '<div class="typeahead-empty">No clients match this search</div>';
+  if (!matches.length) return '<div class="typeahead-empty">No customers match this search</div>';
   return matches.map(client => {
     const active = String(client.id) === String(selectedClientId);
     const vehicleCount = state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(client.id)).length;
@@ -10724,7 +10639,7 @@ function showJobModal(jobId = null, optionsOrPresetClientId = null, presetVehicl
     ${j ? (j.booking_id ? `<div class="job-source-panel"><div class="job-source-title">From booking</div><div class="text-sm text-muted">${fmtDate(j.booking_date)} ${escHtml(j.booking_time || '')} &middot; ${escHtml(j.booking_reason || '')}</div></div>` : '') : renderJobSourcePanel({ mode, booking, sourceBookings })}
     <input id="j-booking-id" type="hidden" value="${j?.booking_id || booking?.id || ''}" />
     <div class="form-grid">
-      <div class="form-row"><label>Client *</label>
+      <div class="form-row"><label>Customer *</label>
         <input id="j-client" type="hidden" value="${initialClientId || ''}" />
         <div class="typeahead">
           <input id="j-client-search" type="text" value="${escHtml(getJobClientLabel(initialClient))}" placeholder="Type name, phone, email or reg..." oninput="updateJobClientSearch(this.value)" onfocus="refreshJobClientTypeahead()" />
@@ -10803,7 +10718,7 @@ async function saveJob(jobId) {
   const clientId = Number(client?.id || 0);
   const vehicleId = Number(vehicle?.id || 0);
   const bookingId = parseInt(document.getElementById('j-booking-id')?.value || '', 10) || null;
-  if (!clientId || !vehicleId) { alert('Select client and vehicle'); return; }
+  if (!clientId || !vehicleId) { alert('Select customer and vehicle'); return; }
   const linkedJob = bookingId ? getJobByBookingId(bookingId) : null;
   if (linkedJob && Number(linkedJob.id) !== Number(jobId || 0)) {
     closeModal();
@@ -10905,7 +10820,7 @@ function showBookingModal(bookingId) {
   showModal(`<div class="modal">
     <h2>${b ? 'Edit Booking' : 'New Booking'}</h2>
     <div class="form-grid">
-      <div class="form-row"><label>Client</label>
+      <div class="form-row"><label>Customer</label>
         <select id="b-client" onchange="handleBookingModalClientChange(this.value)">
           ${state.clients.map(c=>`<option value="${c.id}" ${String(initialClientId)===String(c.id)?'selected':''}>${escHtml(c.name)}</option>`).join('')}
         </select>
