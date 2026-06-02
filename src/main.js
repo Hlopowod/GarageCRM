@@ -7157,7 +7157,15 @@ async function sendAutomaticBookingSms(booking, client, vehicle) {
 
 async function sendAutomaticJobReadySms(job, { requireAutoEnabled = true } = {}) {
   const settings = getMessageSettings();
-  if (!settings.sms_enabled || (requireAutoEnabled && !settings.auto_job_completed_sms)) return;
+  if (!settings.sms_enabled) {
+    if (!requireAutoEnabled) toast('SMS notifications are disabled in Settings.');
+    return;
+  }
+  if (requireAutoEnabled && !settings.auto_job_completed_sms) return;
+  if (!isMessagingConfigured()) {
+    if (!requireAutoEnabled) toast('Sign in before sending SMS.');
+    return;
+  }
   const amountDue = formatAmountForSms(getJobAmountDue(job));
   if (!amountDue) {
     toast('Amount due is missing. Please add payment amount before sending SMS.');
@@ -7180,7 +7188,14 @@ async function sendAutomaticJobReadySms(job, { requireAutoEnabled = true } = {})
     jobCardId: job.id,
     context: getJobCompletedMessageContext(job, client, vehicle, amountDue),
   });
-  if (!action.normalizedPhone || hasMessageBeenSent(action)) return;
+  if (!action.normalizedPhone) {
+    if (!requireAutoEnabled) toast(action.phoneError || 'Customer phone number is missing.');
+    return;
+  }
+  if (hasMessageBeenSent(action)) {
+    if (!requireAutoEnabled) toast('Ready SMS has already been sent.');
+    return;
+  }
   try {
     await sendSmsActionObject(action, { manual: !requireAutoEnabled, silent: true });
     toast('Ready SMS sent successfully');
