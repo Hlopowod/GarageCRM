@@ -7,9 +7,6 @@ on:
         description: Release version without the "v" prefix (example: 1.0.1)
         required: true
         type: string
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: write
