@@ -60,12 +60,9 @@ let state = {
   clientLastVisitFilter: 'any',
   inventoryFilter: 'all',
   jobStatusFilter: 'active',
-  jobLineFilters: {
-    type: 'all',
-    description: '',
-    qty: '',
-    unit: '',
-    total: '',
+  jobLineSort: {
+    field: '',
+    direction: 'asc',
   },
   dashboardDateFilter: 'month',
   reportsDateFilter: 'this-month',
@@ -1883,44 +1880,10 @@ const LINE_TYPES = ['Part', 'Labour', 'Other'];
 const DEFAULT_LINE_TYPE = 'Part';
 const PENDING_LINE_CONFIRM_STATUSES = new Set(['Ready', 'Completed']);
 const JOB_STATUS_FILTERS = ['active', 'completed', 'all'];
-const DEFAULT_JOB_LINE_FILTERS = Object.freeze({
-  type: 'all',
-  description: '',
-  qty: '',
-  unit: '',
-  total: '',
-});
+const JOB_LINE_SORT_FIELDS = ['type', 'description', 'qty', 'unit', 'total'];
 
 function renderLineTypeOptions(selectedType) {
   return LINE_TYPES.map(type => `<option ${selectedType === type ? 'selected' : ''}>${type}</option>`).join('');
-}
-
-function getJobLineFilters() {
-  state.jobLineFilters = {
-    ...DEFAULT_JOB_LINE_FILTERS,
-    ...(state.jobLineFilters || {}),
-  };
-  if (!['all', ...LINE_TYPES].includes(state.jobLineFilters.type)) {
-    state.jobLineFilters.type = 'all';
-  }
-  ['description', 'qty', 'unit', 'total'].forEach(key => {
-    state.jobLineFilters[key] = String(state.jobLineFilters[key] || '');
-  });
-  return state.jobLineFilters;
-}
-
-function normalizeLineFilterText(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function buildLineNumberFilterText(value) {
-  const number = Number(value) || 0;
-  return [
-    String(value ?? ''),
-    String(number),
-    number.toFixed(2),
-    fmt(number),
-  ].join(' ').toLowerCase();
 }
 
 function getLineDescriptionFilterText(line) {
@@ -1932,109 +1895,66 @@ function getLineDescriptionFilterText(line) {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
-function jobLineMatchesFilters(line, filters = getJobLineFilters()) {
-  const selectedType = LINE_TYPES.includes(line?.line_type) ? line.line_type : DEFAULT_LINE_TYPE;
-  const qty = Number(line?.qty) || 0;
-  const unit = Number(line?.unit_price) || 0;
-  const total = qty * unit;
-  const typeFilter = filters.type || 'all';
-  if (typeFilter !== 'all' && selectedType !== typeFilter) return false;
-  const checks = [
-    [filters.description, getLineDescriptionFilterText(line)],
-    [filters.qty, buildLineNumberFilterText(qty)],
-    [filters.unit, buildLineNumberFilterText(unit)],
-    [filters.total, buildLineNumberFilterText(total)],
-  ];
-  return checks.every(([needle, haystack]) => {
-    const normalized = normalizeLineFilterText(needle);
-    return !normalized || haystack.includes(normalized);
-  });
-}
-
-function hasActiveJobLineFilters(filters = getJobLineFilters()) {
-  return filters.type !== 'all'
-    || Boolean(normalizeLineFilterText(filters.description))
-    || Boolean(normalizeLineFilterText(filters.qty))
-    || Boolean(normalizeLineFilterText(filters.unit))
-    || Boolean(normalizeLineFilterText(filters.total));
-}
-
-function getLineFilterDataset(line) {
-  const selectedType = LINE_TYPES.includes(line?.line_type) ? line.line_type : DEFAULT_LINE_TYPE;
-  const qty = Number(line?.qty) || 0;
-  const unit = Number(line?.unit_price) || 0;
-  return {
-    type: selectedType,
-    description: getLineDescriptionFilterText(line),
-    qty: buildLineNumberFilterText(qty),
-    unit: buildLineNumberFilterText(unit),
-    total: buildLineNumberFilterText(qty * unit),
+function getJobLineSort() {
+  state.jobLineSort = {
+    field: '',
+    direction: 'asc',
+    ...(state.jobLineSort || {}),
   };
-}
-
-function syncLineFilterDataset(lineId) {
-  const row = document.querySelector(`[data-line-id="${lineId}"]`);
-  if (!row?.closest('.line-editor.has-line-filters')) return;
-  const line = getLineById(lineId);
-  if (!line) return;
-  const filterData = getLineFilterDataset(line);
-  row.dataset.filterType = filterData.type;
-  row.dataset.filterDescription = filterData.description;
-  row.dataset.filterQty = filterData.qty;
-  row.dataset.filterUnit = filterData.unit;
-  row.dataset.filterTotal = filterData.total;
-  applyJobLineFilters();
-}
-
-function applyJobLineFilters() {
-  const filters = getJobLineFilters();
-  const root = document.querySelector('.line-editor.has-line-filters');
-  if (!root) return;
-  const rows = Array.from(root.querySelectorAll('.line-editor-row[data-line-id]'));
-  let visible = 0;
-  rows.forEach(row => {
-    const matches = (filters.type === 'all' || row.dataset.filterType === filters.type)
-      && (!normalizeLineFilterText(filters.description) || String(row.dataset.filterDescription || '').includes(normalizeLineFilterText(filters.description)))
-      && (!normalizeLineFilterText(filters.qty) || String(row.dataset.filterQty || '').includes(normalizeLineFilterText(filters.qty)))
-      && (!normalizeLineFilterText(filters.unit) || String(row.dataset.filterUnit || '').includes(normalizeLineFilterText(filters.unit)))
-      && (!normalizeLineFilterText(filters.total) || String(row.dataset.filterTotal || '').includes(normalizeLineFilterText(filters.total)));
-    row.hidden = !matches;
-    if (matches) visible += 1;
-  });
-  const count = root.querySelector('[data-line-filter-count]');
-  if (count) count.textContent = hasActiveJobLineFilters(filters) ? `${visible} / ${rows.length}` : '';
-  const clearButton = root.querySelector('[data-line-filter-clear]');
-  if (clearButton) clearButton.disabled = !hasActiveJobLineFilters(filters);
-  const empty = root.querySelector('[data-line-filter-empty]');
-  if (empty) empty.hidden = visible > 0 || rows.length === 0 || !hasActiveJobLineFilters(filters);
-}
-
-function setJobLineFilter(field, value) {
-  const filters = getJobLineFilters();
-  if (field === 'type') {
-    filters.type = ['all', ...LINE_TYPES].includes(value) ? value : 'all';
-  } else if (Object.prototype.hasOwnProperty.call(DEFAULT_JOB_LINE_FILTERS, field)) {
-    filters[field] = String(value || '');
+  if (!JOB_LINE_SORT_FIELDS.includes(state.jobLineSort.field)) {
+    state.jobLineSort.field = '';
   }
-  applyJobLineFilters();
+  state.jobLineSort.direction = state.jobLineSort.direction === 'desc' ? 'desc' : 'asc';
+  return state.jobLineSort;
 }
 
-function clearJobLineFilters() {
-  state.jobLineFilters = { ...DEFAULT_JOB_LINE_FILTERS };
-  const root = document.querySelector('.line-editor.has-line-filters');
-  if (root) {
-    const type = root.querySelector('[data-line-filter-input="type"]');
-    const description = root.querySelector('[data-line-filter-input="description"]');
-    const qty = root.querySelector('[data-line-filter-input="qty"]');
-    const unit = root.querySelector('[data-line-filter-input="unit"]');
-    const total = root.querySelector('[data-line-filter-input="total"]');
-    if (type) type.value = 'all';
-    if (description) description.value = '';
-    if (qty) qty.value = '';
-    if (unit) unit.value = '';
-    if (total) total.value = '';
+function getJobLineSortValue(line, field) {
+  const selectedType = LINE_TYPES.includes(line?.line_type) ? line.line_type : DEFAULT_LINE_TYPE;
+  const qty = Number(line?.qty) || 0;
+  const unit = Number(line?.unit_price) || 0;
+  if (field === 'type') return LINE_TYPES.indexOf(selectedType);
+  if (field === 'description') return getLineDescriptionFilterText(line);
+  if (field === 'qty') return qty;
+  if (field === 'unit') return unit;
+  if (field === 'total') return qty * unit;
+  return '';
+}
+
+function sortJobLinesForEditor(lines) {
+  const sort = getJobLineSort();
+  if (!sort.field) return lines;
+  const direction = sort.direction === 'desc' ? -1 : 1;
+  return lines.map((line, index) => ({ line, index })).sort((left, right) => {
+    const leftValue = getJobLineSortValue(left.line, sort.field);
+    const rightValue = getJobLineSortValue(right.line, sort.field);
+    const result = typeof leftValue === 'number' && typeof rightValue === 'number'
+      ? leftValue - rightValue
+      : String(leftValue || '').localeCompare(String(rightValue || ''), undefined, { numeric: true, sensitivity: 'base' });
+    return result === 0 ? left.index - right.index : result * direction;
+  }).map(item => item.line);
+}
+
+function toggleJobLineSort(field) {
+  if (!JOB_LINE_SORT_FIELDS.includes(field)) return;
+  const sort = getJobLineSort();
+  if (sort.field === field) {
+    sort.direction = sort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    sort.field = field;
+    sort.direction = 'asc';
   }
-  applyJobLineFilters();
+  void renderInPlace();
+}
+
+function renderJobLineHeaderButton(field, label) {
+  const sort = getJobLineSort();
+  const active = sort.field === field;
+  const arrow = active ? (sort.direction === 'asc' ? '↑' : '↓') : '';
+  return `
+    <button type="button" class="line-editor-header-btn ${active ? 'active' : ''}" title="Sort by ${escHtml(label)}" onclick="toggleJobLineSort('${field}')">
+      <span>${escHtml(label)}</span>${arrow ? `<strong>${arrow}</strong>` : ''}
+    </button>
+  `;
 }
 
 function renderLineTypeControl(line) {
@@ -2111,10 +2031,8 @@ function replaceLineEditorRow(lineId, { focusQty = false } = {}) {
   if (!line) return;
   const row = document.querySelector(`[data-line-id="${lineId}"]`);
   if (!row) return;
-  const enableFilters = Boolean(row.closest('.line-editor.has-line-filters'));
-  row.outerHTML = renderEditableLineRow(line, line.job_id, { enableFilters });
+  row.outerHTML = renderEditableLineRow(line, line.job_id);
   previewLineTotalsFromInputs();
-  if (enableFilters) applyJobLineFilters();
   if (focusQty) focusLineQty(lineId);
 }
 
@@ -2158,44 +2076,14 @@ function renderLineInventoryControl(line) {
   return renderInventoryLineSelect(line);
 }
 
-function renderJobLineFilterRow(lines, inventoryEnabled) {
-  const filters = getJobLineFilters();
-  const visibleCount = lines.filter(line => jobLineMatchesFilters(line, filters)).length;
-  const countText = hasActiveJobLineFilters(filters) ? `${visibleCount} / ${lines.length}` : '';
-  return `
-    <div class="line-editor-filters">
-      <select data-line-filter-input="type" aria-label="Filter by type" onchange="setJobLineFilter('type', this.value)">
-        <option value="all" ${filters.type === 'all' ? 'selected' : ''}>All</option>
-        ${LINE_TYPES.map(type => `<option value="${type}" ${filters.type === type ? 'selected' : ''}>${type}</option>`).join('')}
-      </select>
-      ${inventoryEnabled ? '<span></span>' : ''}
-      <input data-line-filter-input="description" type="search" value="${escHtml(filters.description)}" placeholder="Filter description" aria-label="Filter by description" oninput="setJobLineFilter('description', this.value)" />
-      <input data-line-filter-input="qty" class="number-no-spin" type="search" value="${escHtml(filters.qty)}" placeholder="Qty" aria-label="Filter by quantity" oninput="setJobLineFilter('qty', this.value)" />
-      <input data-line-filter-input="unit" class="number-no-spin" type="search" value="${escHtml(filters.unit)}" placeholder="Unit" aria-label="Filter by unit price" oninput="setJobLineFilter('unit', this.value)" />
-      <input data-line-filter-input="total" class="number-no-spin" type="search" value="${escHtml(filters.total)}" placeholder="Total" aria-label="Filter by total" oninput="setJobLineFilter('total', this.value)" />
-      <div class="line-filter-actions">
-        <span data-line-filter-count>${escHtml(countText)}</span>
-        <button class="btn btn-sm" data-line-filter-clear onclick="clearJobLineFilters()" ${hasActiveJobLineFilters(filters) ? '' : 'disabled'}>Clear</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderEditableLineRow(line, jobId, { enableFilters = false } = {}) {
+function renderEditableLineRow(line, jobId) {
   const lineId = Number(line.id) || 0;
   const lineTotal = (Number(line.qty) || 0) * (Number(line.unit_price) || 0);
   const inventoryEnabled = isInventoryEnabled();
-  const filterData = getLineFilterDataset(line);
-  const hidden = enableFilters && !jobLineMatchesFilters(line) ? ' hidden' : '';
   return `
     <div
       class="line-editor-row ${isLinePending(line) ? 'line-row-pending' : ''}"
       data-line-id="${lineId}"
-      data-filter-type="${escHtml(filterData.type)}"
-      data-filter-description="${escHtml(filterData.description)}"
-      data-filter-qty="${escHtml(filterData.qty)}"
-      data-filter-unit="${escHtml(filterData.unit)}"
-      data-filter-total="${escHtml(filterData.total)}"${hidden}
     >
       <div class="line-field line-field-type">
         ${renderLineTypeControl(line)}
@@ -2230,20 +2118,19 @@ function renderEditableLineEditor(lines, jobId, { filters = false } = {}) {
     return '<div class="line-editor-empty">No labour or parts lines yet</div>';
   }
   const inventoryEnabled = isInventoryEnabled();
+  const visibleLines = filters ? sortJobLinesForEditor(lines) : lines;
   return `
-    <div class="line-editor ${inventoryEnabled ? 'has-inventory' : 'no-inventory'} ${filters ? 'has-line-filters' : ''}">
+    <div class="line-editor ${inventoryEnabled ? 'has-inventory' : 'no-inventory'} ${filters ? 'has-sortable-lines' : ''}">
       <div class="line-editor-header">
-        <span>Type</span>
+        ${filters ? renderJobLineHeaderButton('type', 'Type') : '<span>Type</span>'}
         ${inventoryEnabled ? '<span>Inventory</span>' : ''}
-        <span>Description</span>
-        <span>Qty</span>
-        <span>Unit price</span>
-        <span>Total</span>
+        ${filters ? renderJobLineHeaderButton('description', 'Description') : '<span>Description</span>'}
+        ${filters ? renderJobLineHeaderButton('qty', 'Qty') : '<span>Qty</span>'}
+        ${filters ? renderJobLineHeaderButton('unit', 'Unit price') : '<span>Unit price</span>'}
+        ${filters ? renderJobLineHeaderButton('total', 'Total') : '<span>Total</span>'}
         <span></span>
       </div>
-      ${filters ? renderJobLineFilterRow(lines, inventoryEnabled) : ''}
-      ${lines.map(line => renderEditableLineRow(line, jobId, { enableFilters: filters })).join('')}
-      ${filters ? `<div class="line-filter-empty" data-line-filter-empty ${lines.some(line => jobLineMatchesFilters(line)) || !hasActiveJobLineFilters() ? 'hidden' : ''}>No lines match these filters</div>` : ''}
+      ${visibleLines.map(line => renderEditableLineRow(line, jobId)).join('')}
     </div>
   `;
 }
@@ -11337,7 +11224,6 @@ async function updateLine(lineId, field, value) {
   if (totalCell && updatedLine) {
     totalCell.textContent = fmt((Number(updatedLine.qty) || 0) * (Number(updatedLine.unit_price) || 0));
   }
-  syncLineFilterDataset(lineId);
   syncLineStatusUi(lineId);
   previewLineTotalsFromInputs();
   const editingInvoiceLine = state.invoiceEditorId !== null && state.invoiceLines.some(item => item.id === lineId);
@@ -11829,7 +11715,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, setJobLineFilter, clearJobLineFilters, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
 
 initializeSupabaseAuth().finally(() => {
