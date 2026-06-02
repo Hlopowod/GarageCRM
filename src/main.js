@@ -52,8 +52,12 @@ let state = {
   pendingFocusSelectAll: false,
   pendingFocusSerial: 0,
   calendarWeekOffset: 0,
+  calendarViewMode: 'week',
   bookingDraft: null,
   searchQuery: '',
+  clientStatusFilter: 'all',
+  clientVehicleFilter: 'all',
+  clientLastVisitFilter: 'any',
   inventoryFilter: 'all',
   jobStatusFilter: 'active',
   dashboardDateFilter: 'month',
@@ -168,6 +172,7 @@ const UI_TRANSLATIONS = Object.freeze({
   ru: {
     'Dashboard': 'Панель',
     'Clients': 'Клиенты',
+    'Customers': 'Клиенты',
     'Vehicles': 'Автомобили',
     'Job Cards': 'Заказы',
     'Invoices': 'Счета',
@@ -446,6 +451,7 @@ const UI_TRANSLATIONS = Object.freeze({
   bg: {
     'Dashboard': 'Табло',
     'Clients': 'Клиенти',
+    'Customers': 'Клиенти',
     'Vehicles': 'Автомобили',
     'Job Cards': 'Работни карти',
     'Invoices': 'Фактури',
@@ -780,9 +786,9 @@ const SMS_TEMPLATE_VARIABLES = Object.freeze([
 ]);
 const NAV_ITEMS = [
   { screen:'dashboard', path:'M3 3h5v5H3zM9 3h5v5H9zM3 9h5v5H3zM9 9h5v5H9z', label:'Dashboard' },
-  { screen:'clients', path:'M8 8a3 3 0 100-6 3 3 0 000 6zm-5 9a5 5 0 0110 0H3z', label:'Clients' },
+  { screen:'clients', path:'M8 8a3 3 0 100-6 3 3 0 000 6zm-5 9a5 5 0 0110 0H3z', label:'Customers' },
   { screen:'vehicles', path:'M3 8l1.5-3h9L15 8v5H3V8zM5 13v1a1 1 0 002 0v-1M11 13v1a1 1 0 002 0v-1', label:'Vehicles' },
-  { screen:'jobs', path:'M4 2h8l3 3v11H4V2zm3 5h4m-4 3h4m-4 3h2', label:'Job Cards' },
+  { screen:'jobs', path:'M4 2h8l3 3v11H4V2zm3 5h4m-4 3h4m-4 3h2', label:'Jobs' },
   { screen:'invoices', path:'M4 2h8l3 3v11H4V2zm3 4h4m-4 3h4m-4 3h4', label:'Invoices' },
   { screen:'reports', path:'M3 13h10M4 11V7m4 4V4m4 7V2M3 14h10', label:'Reports' },
   { screen:'inventory', path:'M3 4l5-2 5 2v8l-5 2-5-2V4zm0 0 5 2 5-2M8 6v8', label:'Inventory' },
@@ -3987,7 +3993,7 @@ function setTopbarPrimaryButton({ label, onClick, hidden = false }) {
 }
 
 function updateTopbarForScreen(screen = state.screen) {
-  const titles = { dashboard:'Dashboard', clients:'Clients', vehicles:'Vehicles', jobs:'Job Cards', invoices:'Invoices', reports:'Reports', inventory:'Inventory', calendar:'Calendar', messages:'Messages', billing:'Billing', settings:'Settings' };
+  const titles = { dashboard:'Dashboard', clients:'Customers', vehicles:'Vehicles', jobs:'Jobs', invoices:'Invoices', reports:'Reports', inventory:'Inventory', calendar:'Calendar', messages:'Messages', billing:'Billing', settings:'Settings' };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.textContent = titles[screen] || screen;
 }
@@ -4911,8 +4917,19 @@ function setDashboardDateFilter(filter) {
 
 function DashboardDateFilterControls(filters, activeKey) {
   return `
-    <div class="dashboard-filter" role="group" aria-label="Dashboard date range">
-      ${filters.map(filter => `<button class="dashboard-filter-btn ${activeKey === filter.key ? 'active' : ''}" aria-pressed="${activeKey === filter.key ? 'true' : 'false'}" onclick="setDashboardDateFilter('${filter.key}')">${filter.label}</button>`).join('')}
+    <select class="toolbar-select dashboard-range-select" aria-label="Dashboard date range" onchange="setDashboardDateFilter(this.value)">
+      ${filters.map(filter => `<option value="${filter.key}" ${activeKey === filter.key ? 'selected' : ''}>${escHtml(filter.label)}</option>`).join('')}
+    </select>
+  `;
+}
+
+function DashboardEmptyState({ icon = 'calendar', title = 'Nothing here yet', copy = '', buttonLabel = '', onClick = '' } = {}) {
+  return `
+    <div class="dashboard-empty-state">
+      <div class="dashboard-empty-icon">${dashboardIcon(icon)}</div>
+      <div class="dashboard-empty-title">${escHtml(title)}</div>
+      ${copy ? `<div class="dashboard-empty-copy">${escHtml(copy)}</div>` : ''}
+      ${buttonLabel && onClick ? `<button class="btn btn-primary btn-sm" onclick="${onClick}">${escHtml(buttonLabel)}</button>` : ''}
     </div>
   `;
 }
@@ -4937,24 +4954,22 @@ function StatCard({ title, value, subtitle, icon, tone, onClick = '' }) {
 
 function DashboardSummaryPanel(metrics) {
   return `
-    <div class="card dashboard-summary-card">
-      <div class="dashboard-summary-grid">
-        ${metrics.map(metric => `
-          <button class="dashboard-summary-item dashboard-tone-${metric.tone || 'blue'}" onclick="${metric.onClick || ''}">
-            <span class="dashboard-summary-icon">${dashboardIcon(metric.icon)}</span>
-            <span class="dashboard-summary-copy">
-              <span class="dashboard-summary-label">${escHtml(metric.title)}</span>
-              <strong>${escHtml(metric.value)}</strong>
-              <small>${escHtml(metric.subtitle)}</small>
-            </span>
-          </button>
-        `).join('')}
-      </div>
+    <div class="dashboard-summary-grid">
+      ${metrics.map(metric => `
+        <button class="dashboard-summary-item dashboard-tone-${metric.tone || 'blue'}" onclick="${metric.onClick || ''}">
+          <span class="dashboard-summary-icon">${dashboardIcon(metric.icon)}</span>
+          <span class="dashboard-summary-copy">
+            <span class="dashboard-summary-label">${escHtml(metric.title)}</span>
+            <strong>${escHtml(metric.value)}</strong>
+            <small>${escHtml(metric.subtitle)}</small>
+          </span>
+        </button>
+      `).join('')}
     </div>
   `;
 }
 
-function RevenueChart(revenueData, { title = 'Revenue Overview', emptyCopy = 'No revenue recorded this period', rangeLabel = 'selected period', filters = [], activeFilter = state.dashboardDateFilter } = {}) {
+function RevenueChart(revenueData, { title = 'Revenue overview', emptyCopy = 'Paid invoices will appear here.', rangeLabel = 'selected period', filters = [], activeFilter = state.dashboardDateFilter } = {}) {
   const hasRevenue = revenueData.some(item => Number(item.revenue) > 0);
   const totalRevenue = revenueData.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
   const chartHeader = `
@@ -4969,11 +4984,17 @@ function RevenueChart(revenueData, { title = 'Revenue Overview', emptyCopy = 'No
       </div>
     </div>
   `;
-  if (!revenueData.length) {
+  if (!revenueData.length || !hasRevenue) {
     return `
       <div class="card dashboard-chart-card dashboard-revenue-card">
         ${chartHeader}
-        <div class="dashboard-empty-state">${escHtml(emptyCopy)}</div>
+        ${DashboardEmptyState({
+          icon: 'pound',
+          title: 'No revenue yet',
+          copy: emptyCopy,
+          buttonLabel: 'Create invoice',
+          onClick: 'showInvoiceCreateModal()',
+        })}
       </div>
     `;
   }
@@ -5028,8 +5049,14 @@ function JobsStatusChart(jobStatusData) {
   if (!total) {
     return `
       <div class="card dashboard-chart-card dashboard-pipeline-card">
-        <div class="card-header"><span class="card-title">Job Pipeline</span></div>
-        <div class="dashboard-empty-state">No jobs to show</div>
+        <div class="card-header"><span class="card-title">Job pipeline</span></div>
+        ${DashboardEmptyState({
+          icon: 'invoice',
+          title: 'No jobs in progress',
+          copy: 'Jobs you create will appear here.',
+          buttonLabel: 'Create job',
+          onClick: 'showJobModal()',
+        })}
       </div>
     `;
   }
@@ -5043,7 +5070,7 @@ function JobsStatusChart(jobStatusData) {
     <div class="card dashboard-chart-card dashboard-pipeline-card">
       <div class="card-header dashboard-pipeline-head">
         <div>
-          <span class="card-title">Job Pipeline</span>
+          <span class="card-title">Job pipeline</span>
           <div class="dashboard-active-range">${activeCount} active · ${completedCount} completed</div>
         </div>
         <span class="badge badge-blue">${total} jobs</span>
@@ -5113,8 +5140,14 @@ function UpcomingBookings(bookings, { emptyCopy = 'No bookings today' } = {}) {
     .slice(0, 5);
   return `
     <div class="card dashboard-table-card">
-      <div class="card-header"><span class="card-title">Upcoming Bookings</span><span class="badge badge-gray">${upcoming.length}</span></div>
-      ${upcoming.length === 0 ? `<div class="dashboard-empty-state">${escHtml(emptyCopy)}</div>` : `
+      <div class="card-header"><span class="card-title">Upcoming bookings</span><span class="badge badge-gray">${upcoming.length}</span></div>
+      ${upcoming.length === 0 ? DashboardEmptyState({
+        icon: 'calendar',
+        title: 'No bookings this week',
+        copy: emptyCopy,
+        buttonLabel: 'New booking',
+        onClick: 'showBookingFlow()',
+      }) : `
         <div class="dashboard-table-scroll">
           <table>
             <thead><tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Service</th><th>Status</th></tr></thead>
@@ -5245,32 +5278,27 @@ function RecentInventoryMovementsWidget(movements) {
 }
 
 function InventoryControlWidget(stockItems) {
-  const totalItems = getTotalInventoryItems(stockItems);
   const lowStockItems = getLowStockItems(stockItems);
   const outOfStockItems = getOutOfStockItems(stockItems);
   const totalValue = getTotalInventoryValue(stockItems);
   return `
     <div class="card dashboard-table-card inventory-control-card">
       <div class="card-header inventory-control-head">
-        <span class="card-title">Inventory Control</span>
-        <button class="btn btn-sm" onclick="openInventory('all')">Open Inventory</button>
+        <span class="card-title">Inventory alerts</span>
+        <button class="btn btn-ghost btn-sm" onclick="openInventory('all')">View all</button>
       </div>
 
-      <div class="inventory-kpi-row">
-        <button class="inventory-kpi-chip" onclick="openInventory('all')">
-          <span>Items</span>
-          <strong>${totalItems}</strong>
+      <div class="inventory-alert-list">
+        <button class="inventory-alert-line ${lowStockItems.length ? 'is-warning' : ''}" onclick="openInventory('low')">
+          <span>${dashboardIcon('alert')} Low stock</span>
+          <strong>${lowStockItems.length} item${lowStockItems.length === 1 ? '' : 's'}</strong>
         </button>
-        <button class="inventory-kpi-chip ${lowStockItems.length ? 'is-warning' : ''}" onclick="openInventory('low')">
-          <span>Low</span>
-          <strong>${lowStockItems.length}</strong>
+        <button class="inventory-alert-line ${outOfStockItems.length ? 'is-danger' : ''}" onclick="openInventory('out')">
+          <span>${dashboardIcon('alert')} Out of stock</span>
+          <strong>${outOfStockItems.length} item${outOfStockItems.length === 1 ? '' : 's'}</strong>
         </button>
-        <button class="inventory-kpi-chip ${outOfStockItems.length ? 'is-danger' : ''}" onclick="openInventory('out')">
-          <span>Out</span>
-          <strong>${outOfStockItems.length}</strong>
-        </button>
-        <button class="inventory-kpi-chip inventory-kpi-value" onclick="openInventory('all')">
-          <span>Value</span>
+        <button class="inventory-alert-line" onclick="openInventory('all')">
+          <span>${dashboardIcon('stock')} Total value</span>
           <strong>${fmt(totalValue)}</strong>
         </button>
       </div>
@@ -5281,23 +5309,23 @@ function InventoryControlWidget(stockItems) {
 function renderDashboard() {
   const data = getDashboardData();
   const range = getDashboardDateRange();
-  const previousRange = getPreviousDashboardDateRange(range);
   const rangeCopy = getDashboardRangeCopy(range);
   const rangeLabel = getDashboardRangeDisplay(range);
-  const periodBookings = data.bookings.filter(booking => getDashboardBookingStatus(booking) !== 'Cancelled' && isDashboardDateInRange(getDashboardBookingDate(booking), range));
-  const periodJobs = data.jobs.filter(job => isDashboardDateInRange(getDashboardJobDate(job), range, true));
-  const periodInvoices = data.invoices.filter(invoice => isDashboardDateInRange(getDashboardInvoiceRangeDate(invoice), range, true));
+  const todayIso = formatDateInputValue();
+  const todayLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const weekRange = getDashboardDateRange('week');
+  const monthRange = getDashboardDateRange('month');
+  const todayBookings = data.bookings.filter(booking => getDashboardBookingStatus(booking) !== 'Cancelled' && getDashboardBookingDate(booking) === todayIso);
+  const weekBookings = data.bookings.filter(booking => getDashboardBookingStatus(booking) !== 'Cancelled' && isDashboardDateInRange(getDashboardBookingDate(booking), weekRange));
+  const monthRevenueData = buildDashboardRevenueDataForRange(data, monthRange);
+  const revenueThisMonth = monthRevenueData.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
   const periodRevenueData = buildDashboardRevenueDataForRange(data, range);
-  const totalPeriodRevenue = periodRevenueData.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
-  const previousPeriodRevenue = range.key === 'month' && !data.hasConnectedBusinessData
-    ? data.previousMonthRevenue
-    : getDashboardRevenueTotalForRange(data, previousRange);
-  const periodJobStatusData = buildJobStatusDataFromJobs(periodJobs, data.invoices);
-  const activeJobs = periodJobs.filter(job => !['Completed', 'Paid', 'Cancelled'].includes(normalizeDashboardJobStatus(job, data.invoices)));
-  const waitingForPartsCount = periodJobStatusData.find(item => item.status === 'Waiting for Parts')?.count || 0;
-  const unpaidInvoices = periodInvoices.filter(isDashboardOutstandingInvoice);
+  const jobStatusData = buildJobStatusDataFromJobs(data.jobs, data.invoices);
+  const activeJobs = data.jobs.filter(job => !['Completed', 'Paid', 'Cancelled'].includes(normalizeDashboardJobStatus(job, data.invoices)));
+  const waitingForPartsCount = jobStatusData.find(item => item.status === 'Waiting for Parts')?.count || 0;
+  const unpaidInvoices = data.invoices.filter(isDashboardOutstandingInvoice);
   const unpaidInvoiceTotal = unpaidInvoices.reduce((sum, invoice) => sum + getDashboardInvoiceBalance(invoice), 0);
-  const overdueInvoices = periodInvoices.filter(invoice => getDashboardInvoiceStatus(invoice) === 'Overdue');
+  const overdueInvoices = data.invoices.filter(invoice => getDashboardInvoiceStatus(invoice) === 'Overdue');
   const overdueInvoicesCount = overdueInvoices.length;
   const inventoryItems = data.stockItems;
   const filters = [
@@ -5311,40 +5339,44 @@ function renderDashboard() {
     <div class="dashboard-shell">
       <div class="dashboard-toolbar">
         <div>
-          <div class="dashboard-eyebrow">Workshop snapshot</div>
-          <h1>${escHtml(getGarageName())} Dashboard</h1>
+          <h1>Dashboard</h1>
+          <div class="dashboard-active-range">${escHtml(todayLabel)}</div>
+        </div>
+        <div class="dashboard-actions">
+          <button class="btn btn-primary" onclick="showBookingFlow()">+ New booking</button>
+          <button class="btn btn-secondary" onclick="showJobModal()">+ New job</button>
         </div>
       </div>
 
       ${DashboardSummaryPanel([
         {
-          title: rangeCopy.bookingTitle,
-          value: String(periodBookings.length),
-          subtitle: periodBookings.length ? `${dashboardPlural(periodBookings.length, 'vehicle')} ${rangeCopy.bookingSubtitle}` : rangeCopy.noBookings,
+          title: 'Bookings today',
+          value: String(todayBookings.length),
+          subtitle: todayBookings.length ? `${dashboardPlural(todayBookings.length, 'booking')} scheduled` : 'No bookings today',
           icon: 'calendar',
           tone: 'blue',
           onClick: "nav('calendar')",
         },
         {
-          title: rangeCopy.revenueTitle,
-          value: fmt(totalPeriodRevenue),
-          subtitle: formatDashboardRevenueComparison(totalPeriodRevenue, previousPeriodRevenue, rangeCopy),
-          icon: 'pound',
-          tone: 'green',
-          onClick: "nav('invoices')",
-        },
-        {
-          title: 'Jobs In Progress',
+          title: 'Active jobs',
           value: String(activeJobs.length),
-          subtitle: waitingForPartsCount ? `${waitingForPartsCount} waiting for parts` : 'No jobs waiting for parts',
+          subtitle: waitingForPartsCount ? `${waitingForPartsCount} waiting for parts` : 'No jobs in progress',
           icon: 'wrench',
           tone: 'blue',
           onClick: "nav('jobs')",
         },
         {
-          title: 'Unpaid Invoices',
+          title: 'Revenue this month',
+          value: fmt(revenueThisMonth),
+          subtitle: revenueThisMonth > 0 ? 'Paid invoices this month' : 'No revenue yet',
+          icon: 'pound',
+          tone: 'green',
+          onClick: "nav('invoices')",
+        },
+        {
+          title: 'Unpaid invoices',
           value: fmt(unpaidInvoiceTotal),
-          subtitle: unpaidInvoices.length ? `${dashboardPlural(unpaidInvoices.length, 'invoice')} pending` : 'No unpaid invoices',
+          subtitle: unpaidInvoices.length ? `${dashboardPlural(unpaidInvoices.length, 'invoice')} unpaid` : 'All invoices paid',
           icon: 'invoice',
           tone: overdueInvoicesCount ? 'red' : 'amber',
           onClick: "nav('invoices')",
@@ -5352,18 +5384,18 @@ function renderDashboard() {
       ])}
 
       <div class="dashboard-chart-grid">
-        ${RevenueChart(periodRevenueData, { emptyCopy: rangeCopy.revenueEmpty, rangeLabel, filters, activeFilter: range.key })}
-        ${JobsStatusChart(periodJobStatusData)}
+        ${RevenueChart(periodRevenueData, {
+          emptyCopy: rangeCopy.revenueEmpty || 'Paid invoices will appear here.',
+          rangeLabel,
+          filters,
+          activeFilter: range.key,
+        })}
+        ${JobsStatusChart(jobStatusData)}
       </div>
 
       <div class="dashboard-secondary-grid">
-        <div>
-          ${UpcomingBookings(periodBookings, { emptyCopy: rangeCopy.noBookings })}
-          ${OutstandingInvoices(periodInvoices)}
-        </div>
-        <div>
-          ${InventoryControlWidget(inventoryItems)}
-        </div>
+        ${UpcomingBookings(weekBookings, { emptyCopy: 'Create your first booking to start filling your calendar.' })}
+        ${InventoryControlWidget(inventoryItems)}
       </div>
     </div>
   `;
@@ -7913,15 +7945,60 @@ function renderClientBalanceCell(client) {
   return renderPill('No visits yet', 'gray');
 }
 
+function getClientAccountFilter(client) {
+  if (Number(client.balance || 0) > 0) return 'unpaid';
+  if (client.last_visit) return 'paid';
+  return 'no-visits';
+}
+
+function getClientLastVisitAge(client) {
+  if (!client.last_visit) return null;
+  const date = new Date(`${client.last_visit}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const visitStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.max(0, Math.round((todayStart - visitStart) / (24 * 60 * 60 * 1000)));
+}
+
+function setClientStatusFilter(filter) {
+  state.clientStatusFilter = ['all', 'paid', 'unpaid', 'no-visits'].includes(filter) ? filter : 'all';
+  renderInPlace();
+}
+
+function setClientVehicleFilter(filter) {
+  state.clientVehicleFilter = ['all', 'with', 'without'].includes(filter) ? filter : 'all';
+  renderInPlace();
+}
+
+function setClientLastVisitFilter(filter) {
+  state.clientLastVisitFilter = ['any', '30', '90', 'none'].includes(filter) ? filter : 'any';
+  renderInPlace();
+}
+
 function renderClients() {
   const q = state.searchQuery.toLowerCase();
-  const filteredList = q ? state.clients.filter(c => [
+  const statusFilter = state.clientStatusFilter || 'all';
+  const vehicleFilter = state.clientVehicleFilter || 'all';
+  const lastVisitFilter = state.clientLastVisitFilter || 'any';
+  const searchedList = q ? state.clients.filter(c => [
     c.name,
     c.phone,
     c.email,
     c.company,
     getClientVehicleSortText(c),
   ].some(value => String(value || '').toLowerCase().includes(q))) : state.clients;
+  const filteredList = searchedList.filter(client => {
+    const vehicles = getClientVehiclesForList(client.id);
+    if (statusFilter !== 'all' && getClientAccountFilter(client) !== statusFilter) return false;
+    if (vehicleFilter === 'with' && !vehicles.length) return false;
+    if (vehicleFilter === 'without' && vehicles.length) return false;
+    const lastVisitAge = getClientLastVisitAge(client);
+    if (lastVisitFilter === 'none' && lastVisitAge !== null) return false;
+    if (lastVisitFilter === '30' && (lastVisitAge === null || lastVisitAge > 30)) return false;
+    if (lastVisitFilter === '90' && (lastVisitAge === null || lastVisitAge > 90)) return false;
+    return true;
+  });
   const list = sortRows(filteredList, 'clients', {
     client: c => c.name,
     contact: c => `${c.phone || ''} ${c.email || ''}`,
@@ -7930,14 +8007,37 @@ function renderClients() {
     balance: c => c.balance || 0,
   });
   return `
-  <div class="search-bar">
-    <input id="search-input" type="text" placeholder="Search by name, phone, email..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
-    <button class="btn btn-primary" onclick="showClientModal()">+ Add client</button>
+  <div class="list-page-head">
+    <div>
+      <h1>Customers</h1>
+      <div class="dashboard-active-range">${list.length} of ${state.clients.length} customers</div>
+    </div>
+    <button class="btn btn-primary" onclick="showClientModal()">+ Add customer</button>
+  </div>
+  <div class="list-toolbar">
+    <input id="search-input" class="toolbar-field" type="text" placeholder="Search by name, phone, email or reg..." value="${escHtml(state.searchQuery)}" oninput="state.searchQuery=this.value;renderInPlace()" />
+    <select class="toolbar-select" aria-label="Account status" onchange="setClientStatusFilter(this.value)">
+      <option value="all" ${statusFilter === 'all' ? 'selected' : ''}>Status: All</option>
+      <option value="paid" ${statusFilter === 'paid' ? 'selected' : ''}>Status: Paid</option>
+      <option value="unpaid" ${statusFilter === 'unpaid' ? 'selected' : ''}>Status: Unpaid</option>
+      <option value="no-visits" ${statusFilter === 'no-visits' ? 'selected' : ''}>Status: No visits</option>
+    </select>
+    <select class="toolbar-select" aria-label="Vehicle filter" onchange="setClientVehicleFilter(this.value)">
+      <option value="all" ${vehicleFilter === 'all' ? 'selected' : ''}>Vehicle: All</option>
+      <option value="with" ${vehicleFilter === 'with' ? 'selected' : ''}>Vehicle: With vehicle</option>
+      <option value="without" ${vehicleFilter === 'without' ? 'selected' : ''}>Vehicle: No vehicle</option>
+    </select>
+    <select class="toolbar-select" aria-label="Last visit filter" onchange="setClientLastVisitFilter(this.value)">
+      <option value="any" ${lastVisitFilter === 'any' ? 'selected' : ''}>Last visit: Any</option>
+      <option value="30" ${lastVisitFilter === '30' ? 'selected' : ''}>Last visit: 30 days</option>
+      <option value="90" ${lastVisitFilter === '90' ? 'selected' : ''}>Last visit: 90 days</option>
+      <option value="none" ${lastVisitFilter === 'none' ? 'selected' : ''}>Last visit: None</option>
+    </select>
   </div>
   <div class="card data-table-card">
     <div class="table-scroll">
-    <table class="data-table clients-table"><thead><tr>${SortableTh('clients','client','Client')}${SortableTh('clients','contact','Contact')}${SortableTh('clients','vehicle','Vehicle')}${SortableTh('clients','last_visit','Last visit')}${SortableTh('clients','balance','Balance')}<th>Action</th></tr></thead><tbody>
-    ${list.length === 0 ? renderEmptyTableRow(6, 'No clients found') : ''}
+    <table class="data-table clients-table"><thead><tr>${SortableTh('clients','client','Customer')}${SortableTh('clients','contact','Contact')}${SortableTh('clients','vehicle','Vehicle')}${SortableTh('clients','last_visit','Last visit')}${SortableTh('clients','balance','Account')}<th>Actions</th></tr></thead><tbody>
+    ${list.length === 0 ? renderEmptyTableRow(6, 'No customers found') : ''}
     ${list.map(c=>`
     <tr class="clickable" onclick="openClient(${c.id})">
       <td>${renderEntityCell({ label: c.name, meta: c.company || '', avatarKey: c.id || c.name })}</td>
@@ -7945,11 +8045,11 @@ function renderClients() {
       <td>${renderClientVehicleCell(c)}</td>
       <td>${renderDateCell(c.last_visit)}</td>
       <td>${renderClientBalanceCell(c)}</td>
-      <td>${renderRowActions(`openClient(${c.id})`, `showClientModal(${c.id})`)}</td>
+      <td><div class="row-actions">${renderMoreAction(`showClientModal(${c.id})`, 'Customer actions')}</div></td>
     </tr>`).join('')}
     </tbody></table>
     </div>
-    ${renderTableFooter(list.length, 'clients', filteredList.length)}
+    ${renderTableFooter(list.length, 'customers', filteredList.length)}
   </div>`;
 }
 function renderClientProfile() {
@@ -8891,86 +8991,26 @@ async function renderSettings() {
   </div>`;
 }
 
-function renderCalendar() {
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1 + state.calendarWeekOffset * 7);
-  const days = Array.from({length:7}, (_,i) => {
-    const d = new Date(startOfWeek);
-    d.setDate(startOfWeek.getDate()+i);
-    return d;
-  });
-  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const hours = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
-  const colors = ['blue','green','amber','purple'];
-  const bookingColors = {};
-  state.bookings.forEach((b,i) => { bookingColors[b.id] = colors[i%colors.length]; });
-  const weekBookings = state.bookings.filter(b => {
-    const date = new Date(`${b.date}T00:00:00`);
-    return date >= days[0] && date <= days[6];
-  });
-  const activeWeekBookings = weekBookings.filter(b => b.status !== 'Cancelled');
-  const nextOpenSlot = getNextOpenSlot(days, hours);
-  return `
-  <div class="card booking-flow-banner">
-    <div class="booking-flow-head">
-      <div>
-        <div class="booking-eyebrow">Phone Booking Flow</div>
-        <div class="booking-flow-title">Book a service while the caller is still on the line</div>
-        <div class="booking-flow-copy">Search by phone, name or registration, add the missing details inline, then drop the job into a visible calendar slot.</div>
-      </div>
-      <div class="booking-flow-cta">
-        <div class="booking-next-slot">${nextOpenSlot ? `Next open slot: ${fmtDate(nextOpenSlot.date)} at ${nextOpenSlot.time}` : 'Week is fully booked'}</div>
-        <button class="btn btn-primary" onclick="showBookingFlow()">+ Book service</button>
-      </div>
-    </div>
-    <div class="booking-step-strip">
-      <div class="booking-step-card"><div class="booking-step-num">1</div><div><div class="booking-step-title">Find Caller</div><div class="text-sm text-muted">Phone, name or registration search</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">2</div><div><div class="booking-step-title">Pick Vehicle</div><div class="text-sm text-muted">Reuse existing car or add one fast</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">3</div><div><div class="booking-step-title">Lock Slot</div><div class="text-sm text-muted">Choose service type and visible time</div></div></div>
-    </div>
-    <div class="booking-flow-stats">
-      <div class="booking-stat"><span class="booking-stat-label">This week</span><strong>${activeWeekBookings.length} active</strong></div>
-      <div class="booking-stat"><span class="booking-stat-label">Confirmed</span><strong>${activeWeekBookings.filter(b => b.status === 'Confirmed').length}</strong></div>
-      <div class="booking-stat"><span class="booking-stat-label">Pending</span><strong>${activeWeekBookings.filter(b => b.status === 'Pending').length}</strong></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Week of ${days[0].toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${days[6].toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
-      <div class="flex gap-8"><button class="btn btn-sm" onclick="changeCalendarWeek(-1)">← Prev</button><button class="btn btn-sm" onclick="changeCalendarWeek(1)">Next →</button><button class="btn btn-sm btn-primary" onclick="showBookingFlow()">+ Book service</button></div>
-    </div>
-    <div style="overflow-x:auto">
-    <div class="cal-grid" style="min-width:700px">
-      <div class="cal-cell cal-header" style="font-size:11px;color:var(--text2)">Time</div>
-      ${days.map((d,i) => {
-        const isToday = d.toDateString() === today.toDateString();
-        return `<div class="cal-cell cal-header ${isToday?'cal-today':''}"><div style="font-size:11px;color:var(--text2)">${dayNames[i]}</div><div style="font-size:14px;font-weight:${isToday?600:400};color:${isToday?'var(--blue)':'inherit'}">${d.getDate()}${isToday?' ●':''}</div></div>`;
-      }).join('')}
-      ${hours.map(h => `
-        <div class="cal-cell cal-time">${h}</div>
-        ${days.map(d => {
-          const dateStr = d.toISOString().slice(0,10);
-          const dayBookings = state.bookings.filter(b => b.date === dateStr && b.time === h && b.status !== 'Cancelled');
-          const isToday = d.toDateString() === today.toDateString();
-          return `<div class="cal-cell ${isToday?'cal-today':''}">
-            ${dayBookings.length === 0 ? `<div class="cal-empty-slot"><button class="cal-book-btn" onclick="showBookingFlow('${dateStr}','${h}')">+ Book</button></div>` : dayBookings.map(b => renderCalendarBookingEvent(b, bookingColors[b.id])).join('')}
-          </div>`;
-        }).join('')}
-      `).join('')}
-    </div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">All bookings</span></div>
-    <table><thead><tr><th>Date</th><th>Time</th><th>Client</th><th>Vehicle</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
-    ${state.bookings.slice(0,20).map(b=>`
-    <tr><td>${fmtDate(b.date)}</td><td>${escHtml(b.time)}</td><td>${escHtml(b.client_name)}</td><td>${escHtml(getBookingVehicleSummary(b))}</td><td>${escHtml(b.reason)}</td><td>${statusBadge(b.status)}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="showBookingModal(${b.id})">Edit</button> ${b.status !== 'Cancelled' ? `<button class="btn btn-sm btn-danger" onclick="cancelBooking(${b.id})">Cancel</button>` : `<button class="btn btn-sm" onclick="restoreBooking(${b.id})">Restore</button>`}</td></tr>`).join('')}
-    </tbody></table>
-  </div>`;
+// ── MODALS ────────────────────────────────────────────────────────────────
+function getCalendarWeekLabel(days) {
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (!first || !last) return '';
+  const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+  const sameYear = first.getFullYear() === last.getFullYear();
+  const firstLabel = first.toLocaleDateString('en-GB', sameMonth ? { day: 'numeric' } : (sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }));
+  const lastLabel = last.toLocaleDateString('en-GB', { day: 'numeric', month: sameMonth ? 'long' : 'short', year: 'numeric' });
+  return `${firstLabel} - ${lastLabel}`;
 }
 
-// ── MODALS ────────────────────────────────────────────────────────────────
+function getCalendarBookingTone(booking) {
+  const status = String(booking?.status || '').trim().toLowerCase();
+  if (status.includes('complete') || status === 'done') return 'gray';
+  if (status.includes('progress') || status.includes('started')) return 'green';
+  if (status.includes('pending') || status.includes('waiting')) return 'amber';
+  return 'blue';
+}
+
 function renderCalendarView() {
   const today = new Date();
   const startOfWeek = new Date(today);
@@ -8984,17 +9024,8 @@ function renderCalendarView() {
   const slotInterval = getBookingSlotInterval();
   const allowPastBookingTimes = getAllowPastBookingTimes();
   const timeSlots = getCalendarTimeSlots(slotInterval);
-  const slotLabel = slotInterval === 30 ? '30 min' : '1 hour';
   const gridClass = slotInterval === 30 ? 'cal-grid cal-grid-compact' : 'cal-grid';
-  const colors = ['blue', 'green', 'amber', 'purple'];
-  const bookingColors = {};
-  state.bookings.forEach((booking, index) => { bookingColors[booking.id] = colors[index % colors.length]; });
-  const weekBookings = state.bookings.filter(booking => {
-    const date = new Date(`${booking.date}T00:00:00`);
-    return date >= days[0] && date <= days[6];
-  });
-  const activeWeekBookings = weekBookings.filter(booking => booking.status !== 'Cancelled');
-  const nextCalendarSlot = getNextCalendarSlot(days, timeSlots);
+  const weekLabel = getCalendarWeekLabel(days);
   const bookingList = sortRows(state.bookings, 'calendar-bookings', {
     date: booking => booking.date,
     time: booking => booking.time,
@@ -9005,51 +9036,45 @@ function renderCalendarView() {
   }).slice(0, 20);
 
   return `
-  <div class="card booking-flow-banner">
-    <div class="booking-flow-head">
-      <div>
-        <div class="booking-eyebrow">Phone Booking Flow</div>
-        <div class="booking-flow-title">Book a service while the caller is still on the line</div>
-        <div class="booking-flow-copy">Search by phone, name or registration, add the missing details inline, then drop the job into a visible calendar slot.</div>
-      </div>
-      <div class="booking-flow-cta">
-        <div class="booking-next-slot">${nextCalendarSlot ? `${slotLabel} slots · Next visible slot ${fmtDate(nextCalendarSlot.date)} at ${nextCalendarSlot.time}` : `${slotLabel} slots · Multiple vehicles can share one time`}</div>
-        <button class="btn btn-primary" onclick="showBookingFlow()">+ Book service</button>
-      </div>
+  <div class="calendar-shell">
+  <div class="calendar-page-head">
+    <div>
+      <h1>Calendar</h1>
+      <div class="dashboard-active-range">${escHtml(weekLabel)}</div>
     </div>
-    <div class="booking-step-strip">
-      <div class="booking-step-card"><div class="booking-step-num">1</div><div><div class="booking-step-title">Find Caller</div><div class="text-sm text-muted">Phone, name or registration search</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">2</div><div><div class="booking-step-title">Pick Vehicle</div><div class="text-sm text-muted">Reuse existing car or add one fast</div></div></div>
-      <div class="booking-step-card"><div class="booking-step-num">3</div><div><div class="booking-step-title">Lock Slot</div><div class="text-sm text-muted">Choose service type and visible time</div></div></div>
-    </div>
-    <div class="booking-flow-stats">
-      <div class="booking-stat"><span class="booking-stat-label">This week</span><strong>${activeWeekBookings.length} active</strong></div>
-      <div class="booking-stat"><span class="booking-stat-label">Confirmed</span><strong>${activeWeekBookings.filter(booking => booking.status === 'Confirmed').length}</strong></div>
-      <div class="booking-stat"><span class="booking-stat-label">Pending</span><strong>${activeWeekBookings.filter(booking => booking.status === 'Pending').length}</strong></div>
-    </div>
+    <button class="btn btn-primary" onclick="showBookingFlow()">+ New booking</button>
   </div>
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Week of ${days[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${days[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-      <div class="calendar-toolbar">
-        <div class="segmented">
-          <button class="btn btn-sm ${slotInterval === 60 ? 'btn-primary' : ''}" onclick="setCalendarSlotInterval(60)">1 hour</button>
-          <button class="btn btn-sm ${slotInterval === 30 ? 'btn-primary' : ''}" onclick="setCalendarSlotInterval(30)">30 min</button>
-          <button class="btn btn-sm ${allowPastBookingTimes ? 'btn-primary' : ''}" onclick="togglePastBookingTimes()">${allowPastBookingTimes ? 'Past times: On' : 'Past times: Off'}</button>
-        </div>
-        <div class="flex gap-8">
-          <button class="btn btn-sm" onclick="changeCalendarWeek(-1)">&larr; Prev</button>
-          <button class="btn btn-sm" onclick="changeCalendarWeek(1)">Next &rarr;</button>
-          <button class="btn btn-sm btn-primary" onclick="showBookingFlow()">+ Book service</button>
-        </div>
+  <div class="card calendar-card">
+    <div class="calendar-control-row">
+      <div class="calendar-control-left">
+        <select class="toolbar-select" aria-label="Calendar view" onchange="setCalendarViewMode(this.value)">
+          <option value="day">Day</option>
+          <option value="week" selected>Week</option>
+          <option value="month">Month</option>
+        </select>
+        <strong class="calendar-range-label">${escHtml(weekLabel)}</strong>
+        <button class="btn btn-icon" title="Previous week" onclick="changeCalendarWeek(-1)">&lsaquo;</button>
+        <button class="btn btn-secondary btn-sm" onclick="goCalendarToday()">Today</button>
+        <button class="btn btn-icon" title="Next week" onclick="changeCalendarWeek(1)">&rsaquo;</button>
+      </div>
+      <div class="calendar-control-right">
+        <select class="toolbar-select" aria-label="Calendar slot size" onchange="setCalendarSlotInterval(this.value)">
+          <option value="60" ${slotInterval === 60 ? 'selected' : ''}>Slot size: 1 hour</option>
+          <option value="30" ${slotInterval === 30 ? 'selected' : ''}>Slot size: 30 min</option>
+        </select>
+        <select class="toolbar-select" aria-label="Past times" onchange="setPastBookingTimesMode(this.value)">
+          <option value="hidden" ${allowPastBookingTimes ? '' : 'selected'}>Past times: Hidden</option>
+          <option value="visible" ${allowPastBookingTimes ? 'selected' : ''}>Past times: Visible</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="showBookingFlow()">+ New booking</button>
       </div>
     </div>
-    <div style="overflow-x:auto">
-    <div class="${gridClass}" style="min-width:700px">
-      <div class="cal-cell cal-header" style="font-size:11px;color:var(--text2)">Time</div>
+    <div class="calendar-scroll">
+    <div class="${gridClass}">
+      <div class="cal-cell cal-header cal-time-head"></div>
       ${days.map((day, index) => {
         const isToday = day.toDateString() === today.toDateString();
-        return `<div class="cal-cell cal-header ${isToday ? 'cal-today' : ''}"><div style="font-size:11px;color:var(--text2)">${dayNames[index]}</div><div style="font-size:14px;font-weight:${isToday ? 600 : 400};color:${isToday ? 'var(--blue)' : 'inherit'}">${day.getDate()}${isToday ? ' &bull;' : ''}</div></div>`;
+        return `<div class="cal-cell cal-header ${isToday ? 'cal-today' : ''}"><div class="cal-day-name">${dayNames[index]}</div><div class="cal-day-date">${day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div></div>`;
       }).join('')}
       ${timeSlots.map(time => `
         <div class="cal-cell cal-time">${time}</div>
@@ -9060,11 +9085,10 @@ function renderCalendarView() {
           const canBookSlot = canBookTime(dateStr, time);
           const bookButton = canBookSlot
             ? `<button class="cal-book-btn ${slotBookings.length ? 'cal-book-btn-inline' : ''}" onclick="showBookingFlow('${dateStr}','${time}')">+ Book</button>`
-            : `<div class="cal-past-slot ${slotBookings.length ? 'cal-past-slot-inline' : ''}"></div>`;
-          return `<div class="cal-cell ${isToday ? 'cal-today' : ''}">
+            : '';
+          return `<div class="cal-cell cal-slot ${isToday ? 'cal-today' : ''} ${canBookSlot ? 'is-bookable' : 'is-past'}" ${canBookSlot ? `onclick="if(!event.target.closest('.cal-event,button')) showBookingFlow('${dateStr}','${time}')"` : ''}>
             ${slotBookings.length === 0 ? `<div class="cal-empty-slot">${bookButton}</div>` : `
-              <div class="cal-slot-meta">${slotBookings.length} booking${slotBookings.length === 1 ? '' : 's'}</div>
-              ${slotBookings.map(booking => renderCalendarBookingEvent(booking, bookingColors[booking.id])).join('')}
+              ${slotBookings.map(booking => renderCalendarBookingEvent(booking, getCalendarBookingTone(booking))).join('')}
               ${bookButton}
             `}
           </div>`;
@@ -9072,10 +9096,16 @@ function renderCalendarView() {
       `).join('')}
     </div>
     </div>
+    <div class="calendar-legend">
+      <span><i class="legend-dot legend-blue"></i>Confirmed</span>
+      <span><i class="legend-dot legend-green"></i>In progress</span>
+      <span><i class="legend-dot legend-gray"></i>Completed</span>
+    </div>
   </div>
   <div class="card data-table-card">
+    <div class="card-header table-card-header"><span class="card-title">Recent bookings</span></div>
     <div class="table-scroll">
-    <table class="data-table bookings-table"><thead><tr>${SortableTh('calendar-bookings','date','Date')}${SortableTh('calendar-bookings','time','Time')}${SortableTh('calendar-bookings','client','Client')}${SortableTh('calendar-bookings','vehicle','Vehicle')}${SortableTh('calendar-bookings','reason','Reason')}${SortableTh('calendar-bookings','status','Status')}<th>Action</th></tr></thead><tbody>
+    <table class="data-table bookings-table"><thead><tr>${SortableTh('calendar-bookings','date','Date')}${SortableTh('calendar-bookings','time','Time')}${SortableTh('calendar-bookings','client','Customer')}${SortableTh('calendar-bookings','vehicle','Vehicle')}${SortableTh('calendar-bookings','reason','Reason')}${SortableTh('calendar-bookings','status','Status')}<th>Actions</th></tr></thead><tbody>
     ${bookingList.length === 0 ? renderEmptyTableRow(7, 'No bookings yet') : ''}
     ${bookingList.map(booking => `
     <tr class="clickable" onclick="showBookingModal(${booking.id})">
@@ -9090,6 +9120,7 @@ function renderCalendarView() {
     </tbody></table>
     </div>
     ${renderTableFooter(bookingList.length, 'bookings', state.bookings.length)}
+  </div>
   </div>`;
 }
 
@@ -9143,6 +9174,18 @@ async function setCalendarSlotInterval(interval) {
   await render();
 }
 
+function setCalendarViewMode(mode) {
+  const normalized = String(mode || 'week').toLowerCase();
+  state.calendarViewMode = 'week';
+  if (normalized !== 'week') toast('Week view is active');
+  renderInPlace();
+}
+
+function goCalendarToday() {
+  state.calendarWeekOffset = 0;
+  renderInPlace();
+}
+
 async function togglePastBookingTimes() {
   const nextValue = !getAllowPastBookingTimes();
   state.settings = await invoke('save_app_settings', {
@@ -9150,6 +9193,17 @@ async function togglePastBookingTimes() {
   });
   await syncAfterCloudMutation();
   toast(nextValue ? 'Past-time booking enabled' : 'Past-time booking disabled');
+  await render();
+}
+
+async function setPastBookingTimesMode(mode) {
+  const nextValue = String(mode || '').toLowerCase() === 'visible';
+  if (getAllowPastBookingTimes() === nextValue) return;
+  state.settings = await invoke('save_app_settings', {
+    settings: buildAppSettingsPayload({ allow_past_booking_times: nextValue })
+  });
+  await syncAfterCloudMutation();
+  toast(nextValue ? 'Past times visible' : 'Past times hidden');
   await render();
 }
 
@@ -11501,7 +11555,7 @@ async function openClient(clientId) {
   state.selectedClient = clientId;
   state.screen = 'clients';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === 'clients'));
-  document.getElementById('topbar-title').textContent = 'Clients';
+  document.getElementById('topbar-title').textContent = 'Customers';
   setTopbarPrimaryButton({
     label: '+ Add Vehicle',
     onClick: () => showVehicleModal(null, clientId),
@@ -11513,7 +11567,7 @@ function openJob(jobId) {
   state.selectedJob = jobId;
   state.screen = 'jobs';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === 'jobs'));
-  document.getElementById('topbar-title').textContent = 'Job Cards';
+  document.getElementById('topbar-title').textContent = 'Jobs';
   setTopbarPrimaryButton({ hidden: true });
   render();
 }
@@ -11522,7 +11576,7 @@ async function backToJobs() {
   state.selectedJob = null;
   state.screen = 'jobs';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === 'jobs'));
-  document.getElementById('topbar-title').textContent = 'Job Cards';
+  document.getElementById('topbar-title').textContent = 'Jobs';
   setTopbarPrimaryButton({ hidden: true });
   await render();
 }
@@ -11679,7 +11733,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarSlotInterval, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
 
 initializeSupabaseAuth().finally(() => {
