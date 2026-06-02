@@ -45,20 +45,16 @@ This updates:
 
 ## Publishing
 
-Option 1:
+Current active workflow:
 
-1. Commit and push the version change.
-2. Create tag `v1.0.1`.
-3. Push the tag.
-
-Option 2:
-
-1. Commit and push the version change.
+1. Build or upload the Windows EXE/MSI assets to a GitHub Release.
 2. Open GitHub Actions.
-3. Run workflow `Release` manually.
+3. Run workflow `Sign Uploaded Release`.
 4. Enter the version without `v`, for example `1.0.1`.
 
-The workflow will build the app, create/update the GitHub Release, upload updater signatures, and upload `latest.json`.
+That workflow signs the uploaded Windows assets, uploads `.sig` files, publishes `latest.json`, and marks the release as latest.
+
+The full build-and-release workflow is kept as a disabled template at `docs/release-workflow.disabled.yml`. Re-enable it only after validating it in GitHub Actions.
 
 ## Important GitHub setting
 
