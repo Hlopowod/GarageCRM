@@ -357,6 +357,7 @@ const UI_TRANSLATIONS = Object.freeze({
     'Unit price': 'Цена за ед.',
     'Mark Ready': 'Отметить готовым',
     'Mark Ready & Send SMS': 'Отметить готовым и отправить SMS',
+    'Mark Complete': 'Отметить завершённым',
     'Send ready SMS': 'Отправить SMS о готовности',
     'Ready SMS': 'SMS о готовности',
     'Not sent': 'Не отправлено',
@@ -634,6 +635,7 @@ const UI_TRANSLATIONS = Object.freeze({
     'Unit price': 'Ед. цена',
     'Mark Ready': 'Маркирай готово',
     'Mark Ready & Send SMS': 'Маркирай готово и изпрати SMS',
+    'Mark Complete': 'Маркирай завършено',
     'Send ready SMS': 'Изпрати SMS за готовност',
     'Ready SMS': 'SMS за готовност',
     'Not sent': 'Не е изпратено',
@@ -2117,6 +2119,7 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
           ${inv ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>` : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Generate Invoice</button>`}
           <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
           <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
+          <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark Complete</button>
           <button class="btn" onclick="showJobCompletedSmsModal(${job.id})">Send ready SMS</button>
         </div>
         <div class="message-action-meta" style="margin-top:10px">
@@ -8201,6 +8204,7 @@ async function renderJobCard() {
           ${inv ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>` : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Generate Invoice</button>`}
           <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
           <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
+          <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark Complete</button>
         </div>
       </div>
     </div>
