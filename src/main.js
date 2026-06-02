@@ -3632,28 +3632,20 @@ function getCloudAuthModeCopy(mode) {
   if (mode === 'signup') {
     return {
       title: 'Create your account',
-      text: 'Register once, then enter the email code to verify this garage account.',
-      helper: 'We will email a verification code. Enter it here, then log in with your password.',
     };
   }
   if (mode === 'verify') {
     return {
       title: 'Verify your email',
-      text: 'Enter the verification code from the email.',
-      helper: 'Use the newest code from your email. After verification, log in with email and password.',
     };
   }
   if (mode === 'reset') {
     return {
       title: 'Set a new password',
-      text: 'Enter a new password for your Garage CRM account.',
-      helper: 'Use at least 8 characters. After saving, log in with the new password.',
     };
   }
   return {
     title: 'Login to Garage CRM',
-    text: 'Enter your email and password to open your garage workspace.',
-    helper: 'The CRM opens only after login. Each user gets access only to their own workspace.',
   };
 }
 
@@ -3813,17 +3805,12 @@ function renderAuthGate() {
           <img class="auth-gate-logo" src="${BRAND_LOGO_SRC}" alt="Garage CRM" />
           <div class="auth-gate-eyebrow">Garage CRM</div>
           <h1 class="auth-gate-title">${escHtml(copy.title)}</h1>
-          <p class="auth-gate-text">${escHtml(copy.text)}</p>
         </div>
 
         <div class="auth-gate-card">
           ${renderCloudAuthNotice()}
           ${renderCloudAuthFields(cloudForm, authDisabled)}
-          <div class="auth-gate-helper">
-            ${cloud.configured
-              ? escHtml(copy.helper)
-              : 'Account login is not available yet. Contact support.'}
-          </div>
+          ${cloud.configured ? '' : '<div class="auth-gate-helper">Account login is not available yet. Contact support.</div>'}
           <div class="auth-gate-actions">
             ${renderCloudAuthActions(cloudForm, authDisabled, isLoading)}
           </div>

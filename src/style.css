@@ -99,12 +99,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   font-weight: 650;
 }
 
-.auth-gate-text {
-  max-width: 540px;
-  font-size: 15px;
-  color: var(--text2);
-}
-
 .auth-gate-card {
   background: #fff;
   border: 1px solid rgba(0,0,0,0.08);
