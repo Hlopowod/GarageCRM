@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the "v" prefix (example: 1.0.1)
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      GARAGE_CRM_UPDATER_ENDPOINT: https://github.com/Hlopowod/GarageCRM/releases/latest/download/latest.json
+      GARAGE_CRM_UPDATER_PUBKEY: ${{ secrets.GARAGE_CRM_UPDATER_PUBKEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Validate release environment
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "Missing GitHub secret TAURI_SIGNING_PRIVATE_KEY"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:GARAGE_CRM_UPDATER_PUBKEY)) {
+            throw "Missing GitHub secret GARAGE_CRM_UPDATER_PUBKEY"
+          }
+
+      - name: Build and publish Tauri release
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          releaseName: ${{ github.event_name == 'workflow_dispatch' && format('Garage CRM v{0}', inputs.version) || format('Garage CRM {0}', github.ref_name) }}
+          releaseBody: |
+            Automatic Garage CRM release.
+
+            Download the installer from the assets below.
+          releaseDraft: false
+          prerelease: false
+          generateReleaseNotes: true
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true

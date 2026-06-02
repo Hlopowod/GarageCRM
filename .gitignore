@@ -1,0 +1,28 @@
+# macOS metadata
+.DS_Store
+._*
+
+# dependencies and build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+release-assets/
+
+# local database and logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# local cloud config
+.env
+.env.local
+
+# local signing keys
+*.jks
+*.keystore
+*.p12
+*.key
+*.key.pub
+key.properties

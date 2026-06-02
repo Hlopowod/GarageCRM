@@ -1,0 +1,132 @@
+name: Sign Uploaded Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the "v" prefix, for example 1.1.3
+        required: true
+        type: string
+      tag:
+        description: Existing release tag. Leave empty to use v{version}
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sign-uploaded-windows-assets:
+    runs-on: windows-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Tauri CLI
+        shell: pwsh
+        run: npm install --global @tauri-apps/cli@2.10.1
+
+      - name: Sign uploaded assets and publish latest.json
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $version = "${{ inputs.version }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Version input is required."
+          }
+
+          $tag = "${{ inputs.tag }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            $tag = "v$version"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "Missing repository secret TAURI_SIGNING_PRIVATE_KEY."
+          }
+
+          $releaseDir = Join-Path $env:RUNNER_TEMP "garage-crm-release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+          $assetNames = @(
+            "Garage.CRM_${version}_x64-setup.exe",
+            "Garage.CRM_${version}_x64_en-US.msi"
+          )
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY | Out-Null
+
+          foreach ($assetName in $assetNames) {
+            gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern $assetName --dir $releaseDir
+            $assetPath = Join-Path $releaseDir $assetName
+            if (!(Test-Path $assetPath)) {
+              throw "Release $tag is missing asset $assetName. Upload the EXE and MSI first, then run this workflow again."
+            }
+          }
+
+          $keyPath = Join-Path $env:RUNNER_TEMP "garage-crm.key"
+          [System.IO.File]::WriteAllText($keyPath, $env:TAURI_SIGNING_PRIVATE_KEY)
+
+          foreach ($assetName in $assetNames) {
+            $assetPath = Join-Path $releaseDir $assetName
+            $sigPath = "$assetPath.sig"
+            Remove-Item -LiteralPath $sigPath -ErrorAction SilentlyContinue
+
+            $output = & tauri signer sign -f $keyPath "--password=$($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)" $assetPath 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              throw ($output -join [Environment]::NewLine)
+            }
+
+            if (!(Test-Path $sigPath)) {
+              $signature = $output |
+                ForEach-Object {
+                  if ($_ -match "([A-Za-z0-9+/=]{300,})") {
+                    $Matches[1]
+                  }
+                } |
+                Select-Object -Last 1
+
+              if (!$signature) {
+                throw "Signing succeeded but no signature file or signature output was found for $assetName."
+              }
+
+              Set-Content -LiteralPath $sigPath -Value $signature.Trim() -NoNewline -Encoding ascii
+            }
+          }
+
+          $exeName = "Garage.CRM_${version}_x64-setup.exe"
+          $exePath = Join-Path $releaseDir $exeName
+          $exeSignature = (Get-Content -Raw "$exePath.sig").Trim()
+
+          $latest = [ordered]@{
+            version = $version
+            notes = "Garage CRM $version release"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = $exeSignature
+                url = "https://github.com/$env:GITHUB_REPOSITORY/releases/latest/download/$exeName"
+              }
+            }
+          }
+
+          $latestPath = Join-Path $releaseDir "latest.json"
+          $latest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $latestPath -Encoding ascii
+
+          Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $releaseDir $assetNames[0]), (Join-Path $releaseDir $assetNames[1]) |
+            ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content -LiteralPath (Join-Path $releaseDir "SHA256SUMS.txt") -Encoding ascii
+
+          gh release upload $tag --repo $env:GITHUB_REPOSITORY --clobber `
+            "$exePath.sig" `
+            "$(Join-Path $releaseDir "Garage.CRM_${version}_x64_en-US.msi.sig")" `
+            $latestPath `
+            "$(Join-Path $releaseDir "SHA256SUMS.txt")"
+
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --latest
