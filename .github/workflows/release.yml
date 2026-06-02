@@ -55,11 +55,31 @@ jobs:
             throw "Missing GitHub secret GARAGE_CRM_UPDATER_PUBKEY"
           }
 
+      - name: Resolve release metadata
+        id: release
+        shell: pwsh
+        env:
+          RELEASE_VERSION_INPUT: ${{ github.event.inputs.version }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch") {
+            if ([string]::IsNullOrWhiteSpace($env:RELEASE_VERSION_INPUT)) {
+              throw "Release version input is required."
+            }
+            $tag = "v$($env:RELEASE_VERSION_INPUT.Trim())"
+            $name = "Garage CRM $tag"
+          } else {
+            $tag = $env:GITHUB_REF_NAME
+            $name = "Garage CRM $tag"
+          }
+
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Build and publish Tauri release
         uses: tauri-apps/tauri-action@v0
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
-          releaseName: ${{ github.event_name == 'workflow_dispatch' && format('Garage CRM v{0}', inputs.version) || format('Garage CRM {0}', github.ref_name) }}
+          tagName: ${{ steps.release.outputs.tag }}
+          releaseName: ${{ steps.release.outputs.name }}
           releaseBody: |
             Automatic Garage CRM release.
 
