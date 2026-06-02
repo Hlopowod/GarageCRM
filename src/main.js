@@ -3385,7 +3385,7 @@ function clearLoadedBusinessState() {
 }
 
 function setSignedOutWorkspaceNotice() {
-  setCloudAuthNotice('Sign in to open this garage workspace.', 'amber');
+  setCloudAuthNotice('', 'blue');
 }
 
 async function syncAfterCloudMutation() {
