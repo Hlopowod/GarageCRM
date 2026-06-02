@@ -356,9 +356,9 @@ const UI_TRANSLATIONS = Object.freeze({
     'Qty': 'Кол-во',
     'Unit price': 'Цена за ед.',
     'Mark Ready': 'Отметить готовым',
-    'Mark as Complete & Send SMS': 'Завершить и отправить SMS',
-    'Send completion SMS': 'Отправить SMS о готовности',
-    'Completion SMS': 'SMS о готовности',
+    'Mark Ready & Send SMS': 'Отметить готовым и отправить SMS',
+    'Send ready SMS': 'Отправить SMS о готовности',
+    'Ready SMS': 'SMS о готовности',
     'Not sent': 'Не отправлено',
     'No labour or parts lines yet': 'Строк работ или деталей пока нет',
     'Direct job': 'Прямой заказ',
@@ -633,9 +633,9 @@ const UI_TRANSLATIONS = Object.freeze({
     'Qty': 'Кол-во',
     'Unit price': 'Ед. цена',
     'Mark Ready': 'Маркирай готово',
-    'Mark as Complete & Send SMS': 'Завърши и изпрати SMS',
-    'Send completion SMS': 'Изпрати SMS за готовност',
-    'Completion SMS': 'SMS за готовност',
+    'Mark Ready & Send SMS': 'Маркирай готово и изпрати SMS',
+    'Send ready SMS': 'Изпрати SMS за готовност',
+    'Ready SMS': 'SMS за готовност',
     'Not sent': 'Не е изпратено',
     'No labour or parts lines yet': 'Все още няма редове за труд или части',
     'Direct job': 'Директна работа',
@@ -723,8 +723,8 @@ const UI_TRANSLATIONS = Object.freeze({
 const DEFAULT_MESSAGE_TEMPLATES = Object.freeze({
   booking_confirmation: 'Hi {{customer_name}}, your booking with {{garage_name}} is confirmed for {{booking_date}} at {{booking_time}}. Vehicle: {{vehicle_reg}}. If you need to change it, please call {{garage_phone}}.',
   booking_reminder: 'Hi {{customer_name}}, your booking with {{garage_name}} is confirmed for {{booking_date}} at {{booking_time}}. Vehicle: {{vehicle_reg}}. If you need to change it, please call {{garage_phone}}.',
-  job_completed: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready. Job card is completed. Amount to pay: £{{amount_due}}. {{garage_name}}',
-  ready_collection: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready. Job card is completed. Amount to pay: £{{amount_due}}. {{garage_name}}',
+  job_completed: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready for collection. Amount to pay: £{{amount_due}}. {{garage_name}}',
+  ready_collection: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready for collection. Amount to pay: £{{amount_due}}. {{garage_name}}',
   mot_reminder: 'Hi {{customer_name}}, MOT for {{vehicle_reg}} is due on {{mot_due_date}}. Please contact {{garage_name}} on {{garage_phone}} to book your MOT.',
   service_reminder: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is due for service on {{service_due_date}}. Please contact {{garage_name}} on {{garage_phone}} to book.',
   custom: 'Hi {{customer_name}}, this is {{garage_name}}.',
@@ -756,8 +756,8 @@ const DEFAULT_MESSAGE_SETTINGS = Object.freeze({
 const MESSAGE_CATEGORIES = Object.freeze({
   booking_confirmation: { label: 'Booking confirmation', tone: 'blue' },
   booking_reminder: { label: 'Booking confirmation', tone: 'blue' },
-  job_completed: { label: 'Job completed', tone: 'green' },
-  ready_collection: { label: 'Job completed', tone: 'green' },
+  job_completed: { label: 'Ready for collection', tone: 'green' },
+  ready_collection: { label: 'Ready for collection', tone: 'green' },
   mot_reminder: { label: 'MOT reminder', tone: 'amber' },
   service_reminder: { label: 'Service reminder', tone: 'blue' },
   custom: { label: 'Custom SMS', tone: 'gray' },
@@ -2091,7 +2091,7 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
   const invoicePaidAmount = inv ? getInvoicePaidAmount(inv, invoiceTotal) : 0;
   const invoiceBalanceDue = inv ? getInvoiceBalanceDue(inv, invoiceTotal) : 0;
   const invoiceDisplayStatus = inv ? (invoiceBalanceDue <= 0 ? 'Paid' : (invoicePaidAmount > 0 ? 'Partial' : inv.status)) : '';
-  const completionSmsEntry = (state.messageLog || []).find(entry => (
+  const readySmsEntry = (state.messageLog || []).find(entry => (
     normalizeMessageCategoryKey(entry.category) === 'job_completed'
     && (Number(entry.job_card_id ?? entry.jobCardId ?? 0) === Number(job.id) || (getMessageLogRelatedType(entry) === 'job' && getMessageLogRelatedId(entry) === Number(job.id)))
   ));
@@ -2116,12 +2116,12 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           ${inv ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>` : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Generate Invoice</button>`}
           <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
-          <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark as Complete &amp; Send SMS</button>
-          <button class="btn" onclick="showJobCompletedSmsModal(${job.id})">Send completion SMS</button>
+          <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
+          <button class="btn" onclick="showJobCompletedSmsModal(${job.id})">Send ready SMS</button>
         </div>
         <div class="message-action-meta" style="margin-top:10px">
-          ${completionSmsEntry ? StatusBadge(completionSmsEntry.status || 'Draft') : renderPill('Not sent', 'gray')}
-          <span class="entity-subtitle">Completion SMS</span>
+          ${readySmsEntry ? StatusBadge(readySmsEntry.status || 'Draft') : renderPill('Not sent', 'gray')}
+          <span class="entity-subtitle">Ready SMS</span>
           ${!formatAmountForSms(total) ? '<span class="entity-subtitle text-red">Amount due is missing</span>' : ''}
         </div>
       </div>
@@ -7155,9 +7155,9 @@ async function sendAutomaticBookingSms(booking, client, vehicle) {
   }
 }
 
-async function sendAutomaticJobCompletedSms(job) {
+async function sendAutomaticJobReadySms(job, { requireAutoEnabled = true } = {}) {
   const settings = getMessageSettings();
-  if (!settings.sms_enabled || !settings.auto_job_completed_sms) return;
+  if (!settings.sms_enabled || (requireAutoEnabled && !settings.auto_job_completed_sms)) return;
   const amountDue = formatAmountForSms(getJobAmountDue(job));
   if (!amountDue) {
     toast('Amount due is missing. Please add payment amount before sending SMS.');
@@ -7182,8 +7182,8 @@ async function sendAutomaticJobCompletedSms(job) {
   });
   if (!action.normalizedPhone || hasMessageBeenSent(action)) return;
   try {
-    await sendSmsActionObject(action, { silent: true });
-    toast('Completion SMS sent successfully');
+    await sendSmsActionObject(action, { manual: !requireAutoEnabled, silent: true });
+    toast('Ready SMS sent successfully');
   } catch (error) {
     await refreshMessagesState().catch(() => {});
     toast(`SMS failed: ${String(error)}`);
@@ -7473,7 +7473,7 @@ function renderMessagePreferencesCard({ compact = false } = {}) {
       <div class="message-settings-grid">
         <label class="toggle-row"><input id="msg-sms-enabled" type="checkbox" ${settings.sms_enabled ? 'checked' : ''} /> Enable SMS notifications</label>
         <label class="toggle-row"><input id="msg-auto-booking" type="checkbox" ${settings.auto_booking_sms ? 'checked' : ''} /> Auto SMS after new booking</label>
-        <label class="toggle-row"><input id="msg-auto-completed" type="checkbox" ${settings.auto_job_completed_sms ? 'checked' : ''} /> Auto SMS when job completed</label>
+        <label class="toggle-row"><input id="msg-auto-completed" type="checkbox" ${settings.auto_job_completed_sms ? 'checked' : ''} /> Auto SMS when job marked ready</label>
         <label class="toggle-row"><input id="msg-mot-enabled" type="checkbox" ${settings.mot_reminders_enabled ? 'checked' : ''} /> Auto MOT reminders</label>
         <label class="toggle-row"><input id="msg-service-enabled" type="checkbox" ${settings.service_reminders_enabled ? 'checked' : ''} /> Auto service reminders</label>
       </div>
@@ -7494,7 +7494,7 @@ function renderMessagePreferencesCard({ compact = false } = {}) {
           <div class="form-row"><label>Booking confirmation SMS</label><textarea id="msg-booking-template" rows="4">${escHtml(settings.booking_template)}</textarea></div>
           <div class="form-row"><label>MOT template</label><textarea id="msg-mot-template" rows="3">${escHtml(settings.mot_template)}</textarea></div>
           <div class="form-row"><label>Service template</label><textarea id="msg-service-template" rows="3">${escHtml(settings.service_template)}</textarea></div>
-          <div class="form-row"><label>Job card completed SMS</label><textarea id="msg-completed-template" rows="3">${escHtml(settings.completed_template || settings.ready_template)}</textarea></div>
+          <div class="form-row"><label>Ready for collection SMS</label><textarea id="msg-completed-template" rows="3">${escHtml(settings.completed_template || settings.ready_template)}</textarea></div>
         </div>
         <div class="message-template-card-inline">
           <div class="entity-subtitle">Template variables</div>
@@ -8185,7 +8185,7 @@ async function renderJobCard() {
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           ${inv ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>` : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Generate Invoice</button>`}
           <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
-          <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark as Complete &amp; Send SMS</button>
+          <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
         </div>
       </div>
     </div>
@@ -11072,14 +11072,36 @@ async function updateJobStatus(jobId, status) {
   await invoke('save_job_card', { job: updatedJob });
   mergeLocalJob(jobId, updatedJob);
   mergeLocalMileageForJob(updatedJob, updatedJob.mileage_in);
-  if (status === 'Completed' && job.status !== 'Completed') {
-    await sendAutomaticJobCompletedSms(updatedJob);
-  }
   await syncAfterCloudMutation();
   if (state.screen === 'jobs' && state.selectedJob === jobId && status === 'Completed' && normalizeJobStatusFilter(state.jobStatusFilter) === 'active') {
     state.selectedJob = null;
   }
   toast(`Status → ${status}`); render();
+}
+
+async function markJobReadyAndSendSms(jobId) {
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) return;
+  let shouldContinue = false;
+  try {
+    shouldContinue = await confirmPendingLinesBeforeStatusChange(jobId, 'Ready');
+  } catch (error) {
+    alert(String(error));
+    await renderInPlace();
+    return;
+  }
+  if (!shouldContinue) {
+    await renderInPlace();
+    return;
+  }
+  const updatedJob = normalizeJobMileageForSave({ ...job, id: jobId, status: 'Ready', date_opened: job.date_opened || '' });
+  await invoke('save_job_card', { job: updatedJob });
+  mergeLocalJob(jobId, updatedJob);
+  mergeLocalMileageForJob(updatedJob, updatedJob.mileage_in);
+  await syncAfterCloudMutation();
+  await sendAutomaticJobReadySms(updatedJob, { requireAutoEnabled: false });
+  toast('Status → Ready');
+  await render();
 }
 
 async function saveJobField(jobId, field, value) {
@@ -11638,7 +11660,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarSlotInterval, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, updateJobStatus, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarSlotInterval, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
 
 initializeSupabaseAuth().finally(() => {

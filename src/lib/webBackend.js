@@ -55,10 +55,10 @@ const DEFAULT_MESSAGE_SETTINGS = Object.freeze({
   service_days_before: 30,
   garage_phone: '',
   booking_template: 'Hi {{customer_name}}, your booking with {{garage_name}} is confirmed for {{booking_date}} at {{booking_time}}. Vehicle: {{vehicle_reg}}. If you need to change it, please call {{garage_phone}}.',
-  ready_template: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready. Job card is completed. Amount to pay: GBP {{amount_due}}. {{garage_name}}',
+  ready_template: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready for collection. Amount to pay: GBP {{amount_due}}. {{garage_name}}',
   mot_template: 'Hi {{customer_name}}, MOT for {{vehicle_reg}} is due on {{mot_due_date}}. Please contact {{garage_name}} on {{garage_phone}} to book your MOT.',
   service_template: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is due for service on {{service_due_date}}. Please contact {{garage_name}} on {{garage_phone}} to book.',
-  completed_template: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready. Job card is completed. Amount to pay: GBP {{amount_due}}. {{garage_name}}',
+  completed_template: 'Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready for collection. Amount to pay: GBP {{amount_due}}. {{garage_name}}',
 });
 
 function canUseStorage() {

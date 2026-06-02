@@ -385,7 +385,7 @@ fn default_service_message_template() -> String {
 }
 
 fn default_completed_message_template() -> String {
-    "Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready. Job card is completed. Amount to pay: £{{amount_due}}. {{garage_name}}".to_string()
+    "Hi {{customer_name}}, your vehicle {{vehicle_reg}} is ready for collection. Amount to pay: £{{amount_due}}. {{garage_name}}".to_string()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
