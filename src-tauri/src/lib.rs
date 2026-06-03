@@ -251,8 +251,27 @@ pub struct JobLine {
     pub unit_price: f64,
     #[serde(default)]
     pub inventory_item_id: Option<i64>,
+    #[serde(default)]
+    pub worker_id: Option<i64>,
     #[serde(default = "default_job_line_status")]
     pub line_status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Worker {
+    pub id: Option<i64>,
+    #[serde(default)]
+    pub first_name: String,
+    #[serde(default)]
+    pub last_name: String,
+    #[serde(default)]
+    pub position: String,
+    #[serde(default = "default_worker_commission_percent")]
+    pub commission_percent: f64,
+    #[serde(default = "default_true")]
+    pub active: bool,
+    #[serde(default)]
+    pub created_at: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -266,6 +285,8 @@ pub struct Invoice {
     pub payment_method: String,
     #[serde(default)]
     pub paid_amount: f64,
+    #[serde(default)]
+    pub paid_at: String,
     pub notes: String,
     pub vat_rate: f64,
 }
@@ -326,6 +347,10 @@ fn default_vat_enabled() -> bool {
 
 fn default_vat_rate() -> f64 {
     20.0
+}
+
+fn default_worker_commission_percent() -> f64 {
+    30.0
 }
 
 fn default_language() -> String {
@@ -487,7 +512,18 @@ fn init_db(conn: &Connection) {
             qty REAL DEFAULT 1,
             unit_price REAL DEFAULT 0,
             inventory_stock_qty_applied REAL NOT NULL DEFAULT 0,
+            worker_id INTEGER,
             line_status TEXT NOT NULL DEFAULT 'confirmed'
+        );
+
+        CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL DEFAULT '',
+            last_name TEXT NOT NULL DEFAULT '',
+            position TEXT NOT NULL DEFAULT '',
+            commission_percent REAL NOT NULL DEFAULT 30,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         );
 
         CREATE TABLE IF NOT EXISTS invoices (
@@ -499,6 +535,7 @@ fn init_db(conn: &Connection) {
             status TEXT DEFAULT 'Unpaid',
             payment_method TEXT,
             paid_amount REAL NOT NULL DEFAULT 0,
+            paid_at TEXT NOT NULL DEFAULT '',
             notes TEXT,
             vat_rate REAL DEFAULT 20.0
         );
@@ -660,6 +697,7 @@ fn init_db(conn: &Connection) {
     ensure_column_exists(conn, "job_cards", "booking_id", "INTEGER");
     ensure_column_exists(conn, "invoices", "paid_amount", "REAL NOT NULL DEFAULT 0");
     ensure_column_exists(conn, "job_lines", "inventory_item_id", "INTEGER");
+    ensure_column_exists(conn, "job_lines", "worker_id", "INTEGER");
     ensure_column_exists(
         conn,
         "job_lines",
@@ -672,6 +710,7 @@ fn init_db(conn: &Connection) {
         "line_status",
         "TEXT NOT NULL DEFAULT 'confirmed'",
     );
+    ensure_column_exists(conn, "invoices", "paid_at", "TEXT NOT NULL DEFAULT ''");
     ensure_column_exists(
         conn,
         "app_settings",
@@ -1393,6 +1432,11 @@ fn current_timestamp_iso(conn: &Connection) -> String {
     .unwrap_or_default()
 }
 
+fn chrono_date_today(conn: &Connection) -> String {
+    conn.query_row("SELECT date('now')", [], |r| r.get::<_, String>(0))
+        .unwrap_or_default()
+}
+
 fn sanitize_stock_number(value: f64) -> f64 {
     if value.is_finite() {
         ((value.max(0.0)) * 100.0).round() / 100.0
@@ -1819,6 +1863,7 @@ fn empty_account_snapshot() -> Value {
         "job_lines": [],
         "invoices": [],
         "bookings": [],
+        "workers": [],
         "message_log": [],
         "sms_reminder_history": [],
         "synced_at": ""
@@ -2242,7 +2287,7 @@ fn build_client_snapshot(conn: &Connection, client_id: i64) -> Result<Value, Str
             let mut lines_stmt = conn
                 .prepare(
                     "SELECT jl.id, jl.job_id, jl.line_type, jl.description, jl.qty, jl.unit_price,
-                            jl.line_status, jl.inventory_item_id, jl.inventory_stock_qty_applied
+                            jl.line_status, jl.inventory_item_id, jl.inventory_stock_qty_applied, jl.worker_id
                      FROM job_lines jl WHERE jl.job_id=?1 ORDER BY jl.id",
                 )
                 .map_err(|e| e.to_string())?;
@@ -2258,6 +2303,7 @@ fn build_client_snapshot(conn: &Connection, client_id: i64) -> Result<Value, Str
                         "line_status": normalize_job_line_status(&r.get::<_, String>(6).unwrap_or_else(|_| default_job_line_status())),
                         "inventory_item_id": r.get::<_, Option<i64>>(7).unwrap_or(None),
                         "inventory_stock_qty_applied": r.get::<_, f64>(8).unwrap_or(0.0),
+                        "worker_id": r.get::<_, Option<i64>>(9).unwrap_or(None),
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -2274,7 +2320,7 @@ fn build_client_snapshot(conn: &Connection, client_id: i64) -> Result<Value, Str
 
             let invoice = conn
                 .query_row(
-                    "SELECT id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate
+                    "SELECT id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate, paid_at
                      FROM invoices WHERE job_id=?1",
                     params![job_id],
                     |r| {
@@ -2292,6 +2338,7 @@ fn build_client_snapshot(conn: &Connection, client_id: i64) -> Result<Value, Str
                             "paid_amount": round_money(r.get::<_, f64>(7).unwrap_or(0.0)),
                             "notes": r.get::<_, String>(8).unwrap_or_default(),
                             "vat_rate": vat_rate,
+                            "paid_at": r.get::<_, String>(10).unwrap_or_default(),
                             "subtotal": (subtotal * 100.0).round() / 100.0,
                             "vat": (vat * 100.0).round() / 100.0,
                             "total": (total * 100.0).round() / 100.0,
@@ -2421,7 +2468,7 @@ fn build_account_snapshot(conn: &Connection) -> Result<Value, String> {
         .collect();
 
     let mut lines_stmt = conn
-        .prepare("SELECT id, job_id, line_type, description, qty, unit_price, line_status, inventory_item_id, inventory_stock_qty_applied FROM job_lines ORDER BY id")
+        .prepare("SELECT id, job_id, line_type, description, qty, unit_price, line_status, inventory_item_id, inventory_stock_qty_applied, worker_id FROM job_lines ORDER BY id")
         .map_err(|e| e.to_string())?;
     let job_lines: Vec<Value> = lines_stmt
         .query_map([], |r| {
@@ -2435,6 +2482,26 @@ fn build_account_snapshot(conn: &Connection) -> Result<Value, String> {
                 "line_status": normalize_job_line_status(&r.get::<_, String>(6).unwrap_or_else(|_| default_job_line_status())),
                 "inventory_item_id": r.get::<_, Option<i64>>(7).unwrap_or(None),
                 "inventory_stock_qty_applied": r.get::<_, f64>(8).unwrap_or(0.0),
+                "worker_id": r.get::<_, Option<i64>>(9).unwrap_or(None),
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    let mut workers_stmt = conn
+        .prepare("SELECT id, first_name, last_name, position, commission_percent, active, created_at FROM workers ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE")
+        .map_err(|e| e.to_string())?;
+    let workers: Vec<Value> = workers_stmt
+        .query_map([], |r| {
+            Ok(json!({
+                "id": r.get::<_, i64>(0)?,
+                "first_name": r.get::<_, String>(1).unwrap_or_default(),
+                "last_name": r.get::<_, String>(2).unwrap_or_default(),
+                "position": r.get::<_, String>(3).unwrap_or_default(),
+                "commission_percent": r.get::<_, f64>(4).unwrap_or(30.0),
+                "active": r.get::<_, i64>(5).unwrap_or(1) != 0,
+                "created_at": r.get::<_, String>(6).unwrap_or_default(),
             }))
         })
         .map_err(|e| e.to_string())?
@@ -2443,7 +2510,7 @@ fn build_account_snapshot(conn: &Connection) -> Result<Value, String> {
 
     let mut invoices_stmt = conn
         .prepare(
-            "SELECT id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate
+            "SELECT id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate, paid_at
              FROM invoices ORDER BY id",
         )
         .map_err(|e| e.to_string())?;
@@ -2460,6 +2527,7 @@ fn build_account_snapshot(conn: &Connection) -> Result<Value, String> {
                 "paid_amount": round_money(r.get::<_, f64>(7).unwrap_or(0.0)),
                 "notes": r.get::<_, String>(8).unwrap_or_default(),
                 "vat_rate": r.get::<_, f64>(9).unwrap_or(20.0),
+                "paid_at": r.get::<_, String>(10).unwrap_or_default(),
             }))
         })
         .map_err(|e| e.to_string())?
@@ -2633,6 +2701,7 @@ fn build_account_snapshot(conn: &Connection) -> Result<Value, String> {
         "job_lines": job_lines,
         "invoices": invoices,
         "bookings": bookings,
+        "workers": workers,
         "inventory_items": inventory_items,
         "inventory_movements": inventory_movements,
         "message_settings": message_settings_snapshot,
@@ -2673,6 +2742,11 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    let workers = snapshot
+        .get("workers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let inventory_items = snapshot
         .get("inventory_items")
         .and_then(Value::as_array)
@@ -2707,6 +2781,8 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
     conn.execute("DELETE FROM inventory_items", [])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM bookings", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM workers", [])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM invoices", [])
         .map_err(|e| e.to_string())?;
@@ -2792,8 +2868,8 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
                 .unwrap_or("confirmed"),
         );
         conn.execute(
-            "INSERT INTO job_lines (id, job_id, line_type, description, qty, unit_price, line_status, inventory_item_id, inventory_stock_qty_applied)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO job_lines (id, job_id, line_type, description, qty, unit_price, line_status, inventory_item_id, inventory_stock_qty_applied, worker_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 line.get("id").and_then(Value::as_i64).unwrap_or(0),
                 line.get("job_id").and_then(Value::as_i64).unwrap_or(0),
@@ -2808,7 +2884,28 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
                     .filter(|id| *id > 0),
                 line.get("inventory_stock_qty_applied")
                     .and_then(Value::as_f64)
-                    .unwrap_or(0.0)
+                    .unwrap_or(0.0),
+                line.get("worker_id")
+                    .or_else(|| line.get("workerId"))
+                    .and_then(Value::as_i64)
+                    .filter(|id| *id > 0)
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    for worker in workers {
+        conn.execute(
+            "INSERT INTO workers (id, first_name, last_name, position, commission_percent, active, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                worker.get("id").and_then(Value::as_i64).unwrap_or(0),
+                worker.get("first_name").or_else(|| worker.get("firstName")).and_then(Value::as_str).unwrap_or(""),
+                worker.get("last_name").or_else(|| worker.get("lastName")).and_then(Value::as_str).unwrap_or(""),
+                worker.get("position").or_else(|| worker.get("role")).and_then(Value::as_str).unwrap_or(""),
+                worker.get("commission_percent").or_else(|| worker.get("commissionPercent")).and_then(Value::as_f64).unwrap_or(30.0).clamp(0.0, 100.0),
+                if worker.get("active").and_then(Value::as_bool).unwrap_or(true) { 1 } else { 0 },
+                worker.get("created_at").or_else(|| worker.get("createdAt")).and_then(Value::as_str).unwrap_or("")
             ],
         )
         .map_err(|e| e.to_string())?;
@@ -2816,8 +2913,8 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
 
     for invoice in invoices {
         conn.execute(
-            "INSERT INTO invoices (id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO invoices (id, job_id, invoice_number, date_issued, due_date, status, payment_method, paid_amount, notes, vat_rate, paid_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 invoice.get("id").and_then(Value::as_i64).unwrap_or(0),
                 invoice.get("job_id").and_then(Value::as_i64).unwrap_or(0),
@@ -2828,7 +2925,8 @@ fn apply_account_snapshot(conn: &Connection, snapshot: &Value) -> Result<(), Str
                 invoice.get("payment_method").and_then(Value::as_str).unwrap_or(""),
                 round_money(invoice.get("paid_amount").and_then(Value::as_f64).unwrap_or(0.0)),
                 invoice.get("notes").and_then(Value::as_str).unwrap_or(""),
-                invoice.get("vat_rate").and_then(Value::as_f64).unwrap_or(20.0)
+                invoice.get("vat_rate").and_then(Value::as_f64).unwrap_or(20.0),
+                invoice.get("paid_at").or_else(|| invoice.get("date_paid")).and_then(Value::as_str).unwrap_or("")
             ],
         )
         .map_err(|e| e.to_string())?;
@@ -4023,9 +4121,12 @@ fn get_job_lines(job_id: i64, state: State<DbState>) -> Vec<serde_json::Value> {
             "SELECT jl.id, jl.job_id, jl.line_type, jl.description, jl.qty, jl.unit_price,
                     jl.line_status, jl.inventory_item_id, COALESCE(ii.part_name, ''),
                     COALESCE(ii.sku, ''), COALESCE(ii.category, ''), COALESCE(ii.supplier, ''),
-                    jl.inventory_stock_qty_applied
+                    jl.inventory_stock_qty_applied, jl.worker_id,
+                    TRIM(COALESCE(w.first_name, '') || ' ' || COALESCE(w.last_name, '')),
+                    COALESCE(w.position, '')
              FROM job_lines jl
              LEFT JOIN inventory_items ii ON ii.id=jl.inventory_item_id
+             LEFT JOIN workers w ON w.id=jl.worker_id
              WHERE jl.job_id=?1
              ORDER BY jl.id",
         )
@@ -4045,6 +4146,48 @@ fn get_job_lines(job_id: i64, state: State<DbState>) -> Vec<serde_json::Value> {
             "inventory_category": r.get::<_, String>(10).unwrap_or_default(),
             "inventory_supplier": r.get::<_, String>(11).unwrap_or_default(),
             "inventory_stock_qty_applied": r.get::<_, f64>(12).unwrap_or(0.0),
+            "worker_id": r.get::<_, Option<i64>>(13).unwrap_or(None),
+            "worker_name": r.get::<_, String>(14).unwrap_or_default(),
+            "worker_position": r.get::<_, String>(15).unwrap_or_default(),
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect()
+}
+
+#[tauri::command]
+fn get_all_job_lines(state: State<DbState>) -> Vec<serde_json::Value> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare(
+            "SELECT jl.id, jl.job_id, jl.line_type, jl.description, jl.qty, jl.unit_price,
+                    jl.line_status, jl.inventory_item_id, COALESCE(ii.part_name, ''),
+                    COALESCE(ii.sku, ''), COALESCE(ii.category, ''), COALESCE(ii.supplier, ''),
+                    jl.inventory_stock_qty_applied, jl.worker_id,
+                    TRIM(COALESCE(w.first_name, '') || ' ' || COALESCE(w.last_name, '')),
+                    COALESCE(w.position, '')
+             FROM job_lines jl
+             LEFT JOIN inventory_items ii ON ii.id=jl.inventory_item_id
+             LEFT JOIN workers w ON w.id=jl.worker_id
+             ORDER BY jl.id",
+        )
+        .unwrap();
+    stmt.query_map([], |r| {
+        Ok(serde_json::json!({
+            "id": r.get::<_,i64>(0)?,
+            "job_id": r.get::<_,i64>(1)?,
+            "line_type": r.get::<_,String>(2)?,
+            "description": r.get::<_,String>(3).unwrap_or_default(),
+            "qty": r.get::<_,f64>(4)?,
+            "unit_price": r.get::<_,f64>(5)?,
+            "line_status": normalize_job_line_status(&r.get::<_,String>(6).unwrap_or_else(|_| default_job_line_status())),
+            "inventory_item_id": r.get::<_, Option<i64>>(7).unwrap_or(None),
+            "inventory_part_name": r.get::<_, String>(8).unwrap_or_default(),
+            "inventory_sku": r.get::<_, String>(9).unwrap_or_default(),
+            "inventory_category": r.get::<_, String>(10).unwrap_or_default(),
+            "inventory_supplier": r.get::<_, String>(11).unwrap_or_default(),
+            "inventory_stock_qty_applied": r.get::<_, f64>(12).unwrap_or(0.0),
+            "worker_id": r.get::<_, Option<i64>>(13).unwrap_or(None),
+            "worker_name": r.get::<_, String>(14).unwrap_or_default(),
+            "worker_position": r.get::<_, String>(15).unwrap_or_default(),
         }))
     }).unwrap().filter_map(|r| r.ok()).collect()
 }
@@ -4064,6 +4207,7 @@ fn save_job_line(line: JobLine, state: State<DbState>) -> Result<i64, String> {
     } else {
         0.0
     };
+    let worker_id = line.worker_id.filter(|id| *id > 0);
     match line.id {
         Some(id) => {
             let previous = conn
@@ -4100,8 +4244,8 @@ fn save_job_line(line: JobLine, state: State<DbState>) -> Result<i64, String> {
                 )?;
             }
 
-            conn.execute("UPDATE job_lines SET line_type=?1,description=?2,qty=?3,unit_price=?4,line_status=?5,inventory_item_id=?6,inventory_stock_qty_applied=?7 WHERE id=?8",
-                params![line_type,line.description,line.qty,line.unit_price,line_status,inventory_item_id,next_applied_qty,id])
+            conn.execute("UPDATE job_lines SET line_type=?1,description=?2,qty=?3,unit_price=?4,line_status=?5,inventory_item_id=?6,inventory_stock_qty_applied=?7,worker_id=?8 WHERE id=?9",
+                params![line_type,line.description,line.qty,line.unit_price,line_status,inventory_item_id,next_applied_qty,worker_id,id])
                 .map_err(|e| e.to_string())?;
             Ok(id)
         }
@@ -4112,8 +4256,8 @@ fn save_job_line(line: JobLine, state: State<DbState>) -> Result<i64, String> {
                 next_applied_qty,
                 "Job line part used",
             )?;
-            conn.execute("INSERT INTO job_lines (job_id,line_type,description,qty,unit_price,line_status,inventory_item_id,inventory_stock_qty_applied) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-                params![line.job_id,line_type,line.description,line.qty,line.unit_price,line_status,inventory_item_id,next_applied_qty])
+            conn.execute("INSERT INTO job_lines (job_id,line_type,description,qty,unit_price,line_status,inventory_item_id,inventory_stock_qty_applied,worker_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                params![line.job_id,line_type,line.description,line.qty,line.unit_price,line_status,inventory_item_id,next_applied_qty,worker_id])
                 .map_err(|e| e.to_string())?;
             Ok(conn.last_insert_rowid())
         }
@@ -4217,20 +4361,29 @@ fn save_invoice(invoice: Invoice, state: State<DbState>) -> Result<i64, String> 
         "Partial" => round_money(invoice.paid_amount.clamp(0.0, invoice_total)),
         _ => 0.0,
     };
+    let paid_at = if status == "Paid" {
+        if invoice.paid_at.trim().is_empty() {
+            chrono_date_today(&conn)
+        } else {
+            invoice.paid_at.trim().to_string()
+        }
+    } else {
+        "".to_string()
+    };
 
     match invoice.id {
         Some(id) => {
             conn.execute(
-                "UPDATE invoices SET invoice_number=?1,date_issued=?2,due_date=?3,status=?4,payment_method=?5,paid_amount=?6,notes=?7,vat_rate=?8 WHERE id=?9",
-                params![invoice_number, invoice.date_issued, invoice.due_date, status, payment_method, paid_amount, notes, vat_rate, id],
+                "UPDATE invoices SET invoice_number=?1,date_issued=?2,due_date=?3,status=?4,payment_method=?5,paid_amount=?6,notes=?7,vat_rate=?8,paid_at=?9 WHERE id=?10",
+                params![invoice_number, invoice.date_issued, invoice.due_date, status, payment_method, paid_amount, notes, vat_rate, paid_at, id],
             )
             .map_err(|e| e.to_string())?;
             Ok(id)
         }
         None => {
             conn.execute(
-                "INSERT INTO invoices (job_id,invoice_number,date_issued,due_date,status,payment_method,paid_amount,notes,vat_rate) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                params![invoice.job_id, invoice_number, invoice.date_issued, invoice.due_date, status, payment_method, paid_amount, notes, vat_rate],
+                "INSERT INTO invoices (job_id,invoice_number,date_issued,due_date,status,payment_method,paid_amount,notes,vat_rate,paid_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                params![invoice.job_id, invoice_number, invoice.date_issued, invoice.due_date, status, payment_method, paid_amount, notes, vat_rate, paid_at],
             )
             .map_err(|e| e.to_string())?;
             Ok(conn.last_insert_rowid())
@@ -4244,7 +4397,7 @@ fn get_invoices(state: State<DbState>) -> Vec<serde_json::Value> {
     let vat_rate = invoice_vat_rate_from_settings(&load_app_settings_from_conn(&conn));
     let mut stmt = conn
         .prepare(
-            "SELECT i.id, i.job_id, i.invoice_number, i.date_issued, i.due_date, i.status, i.payment_method, i.paid_amount, i.notes, i.vat_rate,
+            "SELECT i.id, i.job_id, i.invoice_number, i.date_issued, i.due_date, i.status, i.payment_method, i.paid_amount, i.notes, i.vat_rate, i.paid_at,
          c.name as client_name, v.registration, v.make, v.model,
          COALESCE(SUM(jl.qty*jl.unit_price),0) as subtotal
          FROM invoices i
@@ -4256,7 +4409,7 @@ fn get_invoices(state: State<DbState>) -> Vec<serde_json::Value> {
         )
         .unwrap();
     stmt.query_map([], |r| {
-        let subtotal: f64 = r.get::<_, f64>(14).unwrap_or(0.0);
+        let subtotal: f64 = r.get::<_, f64>(15).unwrap_or(0.0);
         let vat = subtotal * vat_rate / 100.0;
         let total = subtotal + vat;
         Ok(serde_json::json!({
@@ -4270,10 +4423,11 @@ fn get_invoices(state: State<DbState>) -> Vec<serde_json::Value> {
             "paid_amount": round_money(r.get::<_,f64>(7).unwrap_or(0.0)),
             "notes": r.get::<_,String>(8).unwrap_or_default(),
             "vat_rate": vat_rate,
-            "client_name": r.get::<_,String>(10).unwrap_or_default(),
-            "registration": r.get::<_,String>(11).unwrap_or_default(),
-            "make": r.get::<_,String>(12).unwrap_or_default(),
-            "model": r.get::<_,String>(13).unwrap_or_default(),
+            "paid_at": r.get::<_,String>(10).unwrap_or_default(),
+            "client_name": r.get::<_,String>(11).unwrap_or_default(),
+            "registration": r.get::<_,String>(12).unwrap_or_default(),
+            "make": r.get::<_,String>(13).unwrap_or_default(),
+            "model": r.get::<_,String>(14).unwrap_or_default(),
             "subtotal": (subtotal * 100.0).round() / 100.0,
             "vat": (vat * 100.0).round() / 100.0,
             "total": (total * 100.0).round() / 100.0,
@@ -4305,11 +4459,76 @@ fn mark_invoice_paid(id: i64, method: String, state: State<DbState>) -> Result<(
         .unwrap_or(0.0);
     let paid_amount = round_money(subtotal + (subtotal * vat_rate / 100.0));
     conn.execute(
-        "UPDATE invoices SET status='Paid',payment_method=?1,paid_amount=?2 WHERE id=?3",
+        "UPDATE invoices SET status='Paid',payment_method=?1,paid_amount=?2,paid_at=date('now') WHERE id=?3",
         params![method, paid_amount, id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn get_workers(state: State<DbState>) -> Vec<serde_json::Value> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, first_name, last_name, position, commission_percent, active, created_at
+             FROM workers ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE",
+        )
+        .unwrap();
+    stmt.query_map([], |r| {
+        Ok(serde_json::json!({
+            "id": r.get::<_, i64>(0)?,
+            "first_name": r.get::<_, String>(1).unwrap_or_default(),
+            "last_name": r.get::<_, String>(2).unwrap_or_default(),
+            "position": r.get::<_, String>(3).unwrap_or_default(),
+            "commission_percent": r.get::<_, f64>(4).unwrap_or(30.0).clamp(0.0, 100.0),
+            "active": r.get::<_, i64>(5).unwrap_or(1) != 0,
+            "created_at": r.get::<_, String>(6).unwrap_or_default(),
+        }))
+    })
+    .unwrap()
+    .filter_map(|r| r.ok())
+    .collect()
+}
+
+#[tauri::command]
+fn save_worker(worker: Worker, state: State<DbState>) -> Result<i64, String> {
+    let conn = state.0.lock().unwrap();
+    let first_name = worker.first_name.trim().to_string();
+    let last_name = worker.last_name.trim().to_string();
+    if first_name.is_empty() && last_name.is_empty() {
+        return Err("Worker name is required.".to_string());
+    }
+    let position = worker.position.trim().to_string();
+    let commission_percent = if worker.commission_percent.is_finite() {
+        (worker.commission_percent.clamp(0.0, 100.0) * 100.0).round() / 100.0
+    } else {
+        default_worker_commission_percent()
+    };
+    let active = if worker.active { 1 } else { 0 };
+    let created_at = if worker.created_at.trim().is_empty() {
+        current_timestamp_iso(&conn)
+    } else {
+        worker.created_at.trim().to_string()
+    };
+    match worker.id {
+        Some(id) => {
+            conn.execute(
+                "UPDATE workers SET first_name=?1,last_name=?2,position=?3,commission_percent=?4,active=?5,created_at=?6 WHERE id=?7",
+                params![first_name, last_name, position, commission_percent, active, created_at, id],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(id)
+        }
+        None => {
+            conn.execute(
+                "INSERT INTO workers (first_name,last_name,position,commission_percent,active,created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+                params![first_name, last_name, position, commission_percent, active, created_at],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(conn.last_insert_rowid())
+        }
+    }
 }
 
 #[tauri::command]
@@ -5122,12 +5341,15 @@ pub fn run() {
             get_job_cards,
             save_job_card,
             get_job_lines,
+            get_all_job_lines,
             save_job_line,
             delete_job_line,
             generate_invoice,
             save_invoice,
             get_invoices,
             mark_invoice_paid,
+            get_workers,
+            save_worker,
             get_bookings,
             save_booking,
             delete_booking,

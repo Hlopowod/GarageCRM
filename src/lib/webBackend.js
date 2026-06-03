@@ -10,6 +10,7 @@ const COLLECTIONS = [
   'job_lines',
   'invoices',
   'bookings',
+  'workers',
   'inventory_items',
   'inventory_movements',
   'message_log',
@@ -119,7 +120,7 @@ function cleanString(value) {
 
 function normalizeSnapshot(value = {}) {
   const snapshot = {
-    schema_version: 5,
+    schema_version: 6,
     synced_at: value.synced_at || '',
     garage: { ...DEFAULT_SETTINGS, ...(value.garage || {}) },
     message_settings: { ...DEFAULT_MESSAGE_SETTINGS, ...(value.message_settings || {}) },
@@ -343,14 +344,30 @@ function mapJob(snapshot, job) {
 
 function mapJobLine(snapshot, line) {
   const item = findById(snapshot.inventory_items, line.inventory_item_id);
+  const worker = findById(snapshot.workers || [], line.worker_id);
   return {
     ...line,
+    worker_id: toId(line.worker_id),
+    worker_name: worker ? [worker.first_name, worker.last_name].filter(Boolean).join(' ') : '',
+    worker_position: worker?.position || '',
     line_status: normalizeJobLineStatus(line.line_status),
     inventory_part_name: item?.part_name || '',
     inventory_sku: item?.sku || '',
     inventory_category: item?.category || '',
     inventory_supplier: item?.supplier || '',
     inventory_stock_qty_applied: toNumber(line.inventory_stock_qty_applied),
+  };
+}
+
+function mapWorker(worker) {
+  return {
+    id: toId(worker.id),
+    first_name: cleanString(worker.first_name ?? worker.firstName),
+    last_name: cleanString(worker.last_name ?? worker.lastName),
+    position: cleanString(worker.position ?? worker.role),
+    commission_percent: Math.max(0, Math.min(100, toNumber(worker.commission_percent ?? worker.commissionPercent, 30))),
+    active: worker.active !== false,
+    created_at: worker.created_at || worker.createdAt || nowIso(),
   };
 }
 
@@ -456,6 +473,10 @@ async function getCommands(command, args) {
         .filter(line => toId(line.job_id) === toId(args?.jobId ?? args?.job_id))
         .map(line => mapJobLine(snapshot, line))
         .sort((a, b) => toId(a.id) - toId(b.id));
+    case 'get_all_job_lines':
+      return snapshot.job_lines.map(line => mapJobLine(snapshot, line)).sort((a, b) => toId(a.id) - toId(b.id));
+    case 'get_workers':
+      return (snapshot.workers || []).map(mapWorker).sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
     case 'get_invoices':
       return snapshot.invoices.map(invoice => mapInvoice(snapshot, invoice)).sort((a, b) => cleanString(b.date_issued).localeCompare(cleanString(a.date_issued)));
     case 'get_bookings':
@@ -565,9 +586,16 @@ async function saveCommands(command, args) {
         unit_price: 0,
         line_status: 'confirmed',
         inventory_item_id: null,
+        worker_id: null,
         inventory_stock_qty_applied: 0,
         ...(args?.line || {}),
       }));
+    case 'save_worker':
+      return mutateSnapshot(snapshot => {
+        const worker = mapWorker(args?.worker || {});
+        if (!worker.first_name && !worker.last_name) throw new Error('Worker name is required.');
+        return saveRecord(snapshot, 'workers', worker);
+      });
     case 'save_invoice':
       return mutateSnapshot(snapshot => {
         const invoice = { ...(args?.invoice || {}) };
@@ -581,6 +609,7 @@ async function saveCommands(command, args) {
         invoice.payment_method = cleanString(invoice.payment_method);
         invoice.notes = cleanString(invoice.notes);
         invoice.paid_amount = status === 'Paid' ? totals.total : (status === 'Partial' ? roundMoney(Math.min(Math.max(0, toNumber(invoice.paid_amount)), totals.total)) : 0);
+        invoice.paid_at = status === 'Paid' ? (invoice.paid_at || todayIso()) : '';
         return saveRecord(snapshot, 'invoices', invoice);
       });
     case 'save_booking':
@@ -788,6 +817,7 @@ async function utilityCommands(command, args) {
         invoice.status = 'Paid';
         invoice.payment_method = args?.method || '';
         invoice.paid_amount = totals.total;
+        invoice.paid_at = todayIso();
       });
     case 'search': {
       const snapshot = await loadLocalSnapshot();

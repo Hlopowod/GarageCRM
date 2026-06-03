@@ -46,10 +46,10 @@ import { normalizeAdminSection, renderAdminDashboardPage } from './pages/admin/A
 // ── STATE ──────────────────────────────────────────────────────────────────
 let state = {
   screen: 'dashboard',
-  clients: [], vehicles: [], jobs: [], invoices: [], bookings: [],
+  clients: [], vehicles: [], jobs: [], invoices: [], bookings: [], workers: [],
   inventoryItems: [], inventoryMovements: [], messageLog: [],
   selectedClient: null, selectedJob: null, selectedInvoice: null,
-  jobLines: [], invoiceLines: [],
+  jobLines: [], invoiceLines: [], allJobLines: [],
   invoiceEditorId: null,
   invoiceEditorScrollTop: 0,
   invoiceEditorDirty: false,
@@ -77,6 +77,8 @@ let state = {
   reportsDateFilter: 'this-month',
   reportsCustomFrom: '',
   reportsCustomTo: '',
+  reportsSection: 'overview',
+  workerEditId: null,
   messageFilter: 'all',
   messageQuickFilter: 'all',
   messageSettings: null,
@@ -1575,6 +1577,9 @@ const UI_ICON_PATHS = {
   box: 'M3 5l5-2 5 2v6l-5 2-5-2V5zm0 0 5 2 5-2M8 7v6',
   wrench: 'M10.8 2.5a3.1 3.1 0 01-3.7 4.1L3.5 10.2a1.4 1.4 0 102 2l3.6-3.6a3.1 3.1 0 004.1-3.7l-2 2-1.8-1.8 2-2z',
   message: 'M2.5 4.2h11v7h-6.8L3 13.8v-2.6h-.5v-7zm2.2 2.3h6.6M4.7 8.9h4.5',
+  edit: 'M3 11.8l2.8-.6L12 5l-2-2-6.2 6.2L3 11.8zm5.6-7.4 2 2',
+  pause: 'M5 3.5v9M11 3.5v9',
+  play: 'M5 3.5l7 4.5-7 4.5v-9z',
   more: 'M8 3.2v.1M8 8v.1M8 12.8v.1',
 };
 
@@ -2330,6 +2335,63 @@ function renderLineTypeControl(line) {
   return `<select id="job-line-${line.id}-line_type" class="line-type-select line-type-${selectedType.toLowerCase()}" onchange="setLineType(${line.id}, this.value)">${renderLineTypeOptions(selectedType)}</select>`;
 }
 
+function normalizeWorkerId(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : null;
+}
+
+function normalizeWorkerPercent(value, fallback = 30) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(numeric * 100) / 100));
+}
+
+function getWorkerById(workerId) {
+  const id = normalizeWorkerId(workerId);
+  if (!id) return null;
+  return (state.workers || []).find(worker => normalizeWorkerId(worker.id) === id) || null;
+}
+
+function getWorkerDisplayName(worker) {
+  const name = [worker?.first_name, worker?.last_name].map(part => String(part || '').trim()).filter(Boolean).join(' ');
+  return name || worker?.name || 'Worker';
+}
+
+function getWorkerInitials(worker) {
+  return initials(getWorkerDisplayName(worker));
+}
+
+function getActiveWorkers() {
+  return (state.workers || [])
+    .filter(worker => worker && worker.active !== false)
+    .sort((a, b) => getWorkerDisplayName(a).localeCompare(getWorkerDisplayName(b)));
+}
+
+function renderWorkerSelectOptions(selectedWorkerId) {
+  const selectedId = normalizeWorkerId(selectedWorkerId);
+  const workers = getActiveWorkers();
+  const selectedWorker = selectedId ? getWorkerById(selectedId) : null;
+  const options = [
+    `<option value="" ${selectedId ? '' : 'selected'}>Unassigned</option>`,
+    ...workers.map(worker => {
+      const id = normalizeWorkerId(worker.id);
+      return `<option value="${id}" ${selectedId === id ? 'selected' : ''}>${escHtml(getWorkerDisplayName(worker))}</option>`;
+    }),
+  ];
+  if (selectedWorker && selectedWorker.active === false) {
+    options.push(`<option value="${selectedId}" selected>${escHtml(getWorkerDisplayName(selectedWorker))} (inactive)</option>`);
+  }
+  return options.join('');
+}
+
+function renderLineWorkerControl(line) {
+  const workers = state.workers || [];
+  if (!workers.length) {
+    return `<select id="job-line-${line.id}-worker_id" class="line-worker-select" disabled><option>No workers</option></select>`;
+  }
+  return `<select id="job-line-${line.id}-worker_id" class="line-worker-select" onchange="updateLine(${line.id},'worker_id',this.value)">${renderWorkerSelectOptions(line?.worker_id)}</select>`;
+}
+
 function previewLineNumberInput(lineId) {
   const qtyInput = document.getElementById(`job-line-${lineId}-qty`);
   const unitInput = document.getElementById(`job-line-${lineId}-unit_price`);
@@ -2382,7 +2444,98 @@ function previewLineTotalsFromInputs() {
 }
 
 function getLineById(lineId) {
-  return state.invoiceLines.find(item => item.id === lineId) || state.jobLines.find(item => item.id === lineId) || null;
+  const id = Number(lineId);
+  return state.invoiceLines.find(item => item.id === id) || state.jobLines.find(item => item.id === id) || state.allJobLines.find(item => item.id === id) || null;
+}
+
+function mergeAllJobLinesForJob(jobId, lines = []) {
+  const numericJobId = Number(jobId);
+  state.allJobLines = [
+    ...(state.allJobLines || []).filter(line => Number(line.job_id) !== numericJobId),
+    ...lines.map(line => ({ ...line })),
+  ].sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+}
+
+function getAllJobLinesForJob(jobId) {
+  const numericJobId = Number(jobId);
+  const all = (state.allJobLines || []).filter(line => Number(line.job_id) === numericJobId);
+  if (all.length) return all;
+  return (state.jobLines || []).filter(line => Number(line.job_id) === numericJobId);
+}
+
+function isLabourLine(line) {
+  return String(line?.line_type || '').trim().toLowerCase() === 'labour';
+}
+
+function getLineTotal(line) {
+  return roundMoney((Number(line?.qty) || 0) * (Number(line?.unit_price) || 0));
+}
+
+function buildJobWorkerPayoutRows(lines = []) {
+  const map = new Map();
+  lines.filter(isLabourLine).forEach(line => {
+    const labour = getLineTotal(line);
+    if (labour <= 0) return;
+    const workerId = normalizeWorkerId(line.worker_id);
+    const worker = getWorkerById(workerId);
+    const key = worker ? String(worker.id) : 'unassigned';
+    if (!map.has(key)) {
+      const rate = worker ? normalizeWorkerPercent(worker.commission_percent, 0) : 0;
+      map.set(key, {
+        key,
+        worker,
+        name: worker ? getWorkerDisplayName(worker) : 'Unassigned',
+        role: worker?.position || '-',
+        rate,
+        labour: 0,
+        payout: 0,
+        lines: 0,
+      });
+    }
+    const row = map.get(key);
+    row.labour = roundMoney(row.labour + labour);
+    row.payout = roundMoney(row.payout + (labour * row.rate / 100));
+    row.lines += 1;
+  });
+  return Array.from(map.values()).sort((a, b) => b.payout - a.payout || a.name.localeCompare(b.name));
+}
+
+function renderJobWorkerPayoutCard(lines = []) {
+  const rows = buildJobWorkerPayoutRows(lines);
+  const totalPayout = rows.reduce((sum, row) => sum + row.payout, 0);
+  const totalLabour = rows.reduce((sum, row) => sum + row.labour, 0);
+  return `
+    <div class="card job-worker-card">
+      <div class="card-header">
+        <span class="card-title">Assigned Workers &amp; Payout</span>
+        <span class="badge badge-blue">${fmt(totalLabour)} labour</span>
+      </div>
+      ${rows.length ? `
+        <div class="table-scroll">
+          <table class="data-table job-worker-table">
+            <thead><tr><th>Worker</th><th>Role</th><th>Labour</th><th>Rate</th><th>Payout</th></tr></thead>
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>
+                    <div class="worker-cell">
+                      <span class="worker-avatar">${escHtml(row.worker ? getWorkerInitials(row.worker) : '?')}</span>
+                      <div><strong>${escHtml(row.name)}</strong><div class="entity-subtitle">${row.lines} labour line${row.lines === 1 ? '' : 's'}</div></div>
+                    </div>
+                  </td>
+                  <td>${escHtml(row.role)}</td>
+                  <td>${fmt(row.labour)}</td>
+                  <td>${row.worker ? fmtPercent(row.rate) : '-'}</td>
+                  <td><strong>${fmt(row.payout)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="job-worker-total"><span>Total payout</span><strong>${fmt(totalPayout)}</strong></div>
+      ` : '<div class="dashboard-empty-state">Assign workers to labour lines to calculate payout.</div>'}
+    </div>
+  `;
 }
 
 function focusLineQty(lineId) {
@@ -2473,10 +2626,13 @@ function renderEditableLineRow(line, jobId) {
       <div class="line-total-box">
         <strong id="job-line-${lineId}-total">${fmt(lineTotal)}</strong>
       </div>
-        <div class="line-row-actions">
-          <span id="job-line-${lineId}-status-cell" class="line-status-cell">${renderLineStatusToggle(line)}</span>
-          <button class="btn btn-sm btn-danger line-delete-btn" onclick="deleteLine(${lineId})">X</button>
-        </div>
+      <div class="line-field line-field-worker">
+        ${renderLineWorkerControl(line)}
+      </div>
+      <div class="line-row-actions">
+        <span id="job-line-${lineId}-status-cell" class="line-status-cell">${renderLineStatusToggle(line)}</span>
+        <button class="btn btn-sm btn-danger line-delete-btn" onclick="deleteLine(${lineId})">X</button>
+      </div>
     </div>
   `;
 }
@@ -2496,6 +2652,7 @@ function renderEditableLineEditor(lines, jobId, { filters = false } = {}) {
         ${filters ? renderJobLineHeaderButton('qty', 'Qty') : '<span>Qty</span>'}
         ${filters ? renderJobLineHeaderButton('unit', 'Unit price') : '<span>Unit price</span>'}
         ${filters ? renderJobLineHeaderButton('total', 'Total') : '<span>Total</span>'}
+        <span>Worker</span>
         <span></span>
       </div>
       ${visibleLines.map(line => renderEditableLineRow(line, jobId)).join('')}
@@ -2546,6 +2703,7 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
           ${!formatAmountForSms(total) ? '<span class="entity-subtitle text-red">Amount due is missing</span>' : ''}
         </div>
       </div>
+      ${renderJobWorkerPayoutCard(state.jobLines)}
     </div>
 
     <div class="job-detail-sidebar">
@@ -2804,7 +2962,7 @@ function syncInvoiceEditorTotalsUi(invoiceId = state.invoiceEditorId) {
 
 function syncLineState(lineId, overrides = {}) {
   let updatedLine = null;
-  [state.jobLines, state.invoiceLines].forEach(lines => {
+  [state.jobLines, state.invoiceLines, state.allJobLines].forEach(lines => {
     const line = lines.find(item => item.id === lineId);
     if (!line) return;
     Object.assign(line, overrides);
@@ -2816,6 +2974,7 @@ function syncLineState(lineId, overrides = {}) {
 function removeLineFromState(lineId) {
   state.jobLines = state.jobLines.filter(line => line.id !== lineId);
   state.invoiceLines = state.invoiceLines.filter(line => line.id !== lineId);
+  state.allJobLines = state.allJobLines.filter(line => line.id !== lineId);
 }
 
 function getBookingById(bookingId) {
@@ -3907,6 +4066,8 @@ function clearLoadedBusinessState() {
   state.jobs = [];
   state.invoices = [];
   state.bookings = [];
+  state.workers = [];
+  state.allJobLines = [];
   state.inventoryItems = [];
   state.inventoryMovements = [];
   state.messageLog = [];
@@ -4602,12 +4763,14 @@ async function invokeForLoad(command, args, fallback) {
 }
 
 async function loadBusinessStateFromBackend() {
-  const [clients, vehicles, jobs, invoices, bookings, inventoryItems, inventoryMovements, messageSettings, messageLog, nextSettings, nextCloud, nextAppUpdateMeta] = await Promise.all([
+  const [clients, vehicles, jobs, invoices, bookings, workers, allJobLines, inventoryItems, inventoryMovements, messageSettings, messageLog, nextSettings, nextCloud, nextAppUpdateMeta] = await Promise.all([
     invokeForLoad('get_clients', undefined, state.clients || []),
     invokeForLoad('get_vehicles', {clientId: null}, state.vehicles || []),
     invokeForLoad('get_job_cards', undefined, state.jobs || []),
     invokeForLoad('get_invoices', undefined, state.invoices || []),
     invokeForLoad('get_bookings', undefined, state.bookings || []),
+    invokeForLoad('get_workers', undefined, state.workers || []),
+    invokeForLoad('get_all_job_lines', undefined, state.allJobLines || []),
     invokeForLoad('get_inventory_items', undefined, state.inventoryItems || []),
     invokeForLoad('get_inventory_movements', undefined, state.inventoryMovements || []),
     invokeForLoad('get_message_settings', undefined, state.messageSettings),
@@ -4621,6 +4784,8 @@ async function loadBusinessStateFromBackend() {
   state.jobs = jobs;
   state.invoices = invoices;
   state.bookings = bookings;
+  state.workers = workers;
+  state.allJobLines = allJobLines;
   state.inventoryItems = inventoryItems;
   state.inventoryMovements = inventoryMovements;
   state.messageSettings = messageSettings;
@@ -5912,9 +6077,18 @@ const REPORT_DATE_FILTERS = Object.freeze([
   { key: 'this-year', label: 'This Year' },
   { key: 'custom', label: 'Custom Range' },
 ]);
+const REPORT_SECTIONS = Object.freeze([
+  { key: 'overview', label: 'Overview' },
+  { key: 'workers', label: 'Workers' },
+]);
 const REPORT_CATEGORIES = Object.freeze(['MOT', 'Service', 'Diagnostics', 'Repair', 'Tyres', 'Brakes', 'Other']);
 const REPORT_PAID_AMOUNT_FIELDS = Object.freeze(['paid_amount', 'amount_paid', 'paid_total', 'total_paid', 'payment_amount', 'payments_total']);
 const REPORT_PAYMENT_DATE_FIELDS = Object.freeze(['payment_date', 'paid_at', 'date_paid', 'paid_date', 'last_payment_date']);
+
+function normalizeReportsSection(section) {
+  const key = String(section || '').trim().toLowerCase();
+  return REPORT_SECTIONS.some(item => item.key === key) ? key : 'overview';
+}
 
 function normalizeReportsDateFilter(filter) {
   const key = String(filter || '').trim().toLowerCase();
@@ -6006,6 +6180,11 @@ function setReportsDateFilter(filter) {
     state.reportsCustomFrom = fallback.startIso;
     state.reportsCustomTo = fallback.endIso;
   }
+  renderInPlace();
+}
+
+function setReportsSection(section) {
+  state.reportsSection = normalizeReportsSection(section);
   renderInPlace();
 }
 
@@ -6379,6 +6558,119 @@ function buildReportsJobsReport(periodJobs, invoiceRows, categoryBreakdown) {
   };
 }
 
+function getWorkerReportDate(row) {
+  return normalizeDashboardDateText(getReportPaymentDate(row.invoice)) || normalizeDashboardDateText(row.invoiceDate);
+}
+
+function makeWorkerAggregationRow(worker = null) {
+  return {
+    key: worker ? String(worker.id) : 'unassigned',
+    workerId: worker ? normalizeWorkerId(worker.id) : null,
+    worker,
+    name: worker ? getWorkerDisplayName(worker) : 'Unassigned labour',
+    role: worker?.position || '-',
+    rate: worker ? normalizeWorkerPercent(worker.commission_percent, 0) : 0,
+    labour: 0,
+    payout: 0,
+    lines: 0,
+    invoiceKeys: new Set(),
+  };
+}
+
+function buildWorkersReportData(range) {
+  const workers = (state.workers || [])
+    .map(worker => ({
+      ...worker,
+      id: normalizeWorkerId(worker.id),
+      commission_percent: normalizeWorkerPercent(worker.commission_percent, 30),
+      active: worker.active !== false,
+    }))
+    .filter(worker => worker.id)
+    .sort((a, b) => getWorkerDisplayName(a).localeCompare(getWorkerDisplayName(b)));
+  const workerMap = new Map(workers.map(worker => [String(worker.id), worker]));
+  const workerRowsMap = new Map(workers.map(worker => [String(worker.id), makeWorkerAggregationRow(worker)]));
+  const dayMap = new Map();
+  const assignmentRows = [];
+  const paidInvoiceRows = (state.invoices || [])
+    .map(buildReportInvoiceRow)
+    .filter(row => row.invoiceStatus === 'Paid')
+    .filter(row => isReportDateInRange(getWorkerReportDate(row), range));
+
+  paidInvoiceRows.forEach(row => {
+    const paymentDate = getWorkerReportDate(row) || normalizeDashboardDateText(row.invoiceDate);
+    const invoiceKey = String(row.invoice?.id || row.invoiceNumber || '');
+    const jobId = row.job?.id || row.invoice?.job_id || null;
+    const lines = getAllJobLinesForJob(jobId).filter(isLabourLine);
+    lines.forEach(line => {
+      const labour = getLineTotal(line);
+      if (labour <= 0) return;
+      const workerId = normalizeWorkerId(line.worker_id);
+      const worker = workerId ? workerMap.get(String(workerId)) : null;
+      const key = worker ? String(worker.id) : 'unassigned';
+      if (!workerRowsMap.has(key)) workerRowsMap.set(key, makeWorkerAggregationRow(worker));
+      const workerRow = workerRowsMap.get(key);
+      const rate = workerRow.rate;
+      const payout = worker ? roundMoney(labour * rate / 100) : 0;
+      workerRow.labour = roundMoney(workerRow.labour + labour);
+      workerRow.payout = roundMoney(workerRow.payout + payout);
+      workerRow.lines += 1;
+      if (invoiceKey) workerRow.invoiceKeys.add(invoiceKey);
+
+      if (paymentDate) {
+        if (!dayMap.has(paymentDate)) {
+          dayMap.set(paymentDate, { date: paymentDate, label: formatDashboardDay(paymentDate), labour: 0, payout: 0, lines: 0, invoiceKeys: new Set() });
+        }
+        const day = dayMap.get(paymentDate);
+        day.labour = roundMoney(day.labour + labour);
+        day.payout = roundMoney(day.payout + payout);
+        day.lines += 1;
+        if (invoiceKey) day.invoiceKeys.add(invoiceKey);
+      }
+
+      assignmentRows.push({
+        paymentDate,
+        invoiceNumber: row.invoiceNumber,
+        jobId,
+        customerName: row.customerName,
+        registration: row.registration,
+        workerId: worker ? worker.id : null,
+        workerName: worker ? getWorkerDisplayName(worker) : 'Unassigned labour',
+        workerRole: worker?.position || '-',
+        description: line.description || 'Labour',
+        labour,
+        rate,
+        payout,
+      });
+    });
+  });
+
+  const workerRows = Array.from(workerRowsMap.values())
+    .map(row => ({
+      ...row,
+      invoices: row.invoiceKeys.size,
+    }))
+    .sort((a, b) => b.payout - a.payout || b.labour - a.labour || a.name.localeCompare(b.name));
+  const dailyRows = Array.from(dayMap.values())
+    .map(row => ({ ...row, invoices: row.invoiceKeys.size }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const totalLabour = assignmentRows.reduce((sum, row) => sum + row.labour, 0);
+  const totalPayout = assignmentRows.reduce((sum, row) => sum + row.payout, 0);
+
+  return {
+    workers,
+    workerRows,
+    dailyRows,
+    assignmentRows: assignmentRows.sort((a, b) => String(b.paymentDate || '').localeCompare(String(a.paymentDate || '')) || a.workerName.localeCompare(b.workerName)),
+    summary: {
+      activeWorkers: workers.filter(worker => worker.active).length,
+      paidInvoices: paidInvoiceRows.length,
+      totalLabour: roundMoney(totalLabour),
+      totalPayout: roundMoney(totalPayout),
+      assignedLines: assignmentRows.length,
+    },
+  };
+}
+
 function buildReportsData() {
   const range = getReportsDateRange();
   const invoices = Array.isArray(state.invoices) ? state.invoices : [];
@@ -6400,6 +6692,7 @@ function buildReportsData() {
   const customerReport = buildReportsCustomerReport(range, periodInvoices, periodJobs, periodBookings);
   const jobsReport = buildReportsJobsReport(periodJobs, periodInvoices, categoryBreakdown);
   const payments = buildReportsPayments(periodInvoices);
+  const workersReport = buildWorkersReportData(range);
   return {
     range,
     periodInvoices,
@@ -6410,6 +6703,7 @@ function buildReportsData() {
     customerReport,
     jobsReport,
     payments,
+    workersReport,
     summary: {
       totalRevenue,
       paidRevenue,
@@ -6657,7 +6951,215 @@ function renderReportJobs(report) {
   `;
 }
 
+function renderReportsSectionTabs() {
+  const active = normalizeReportsSection(state.reportsSection);
+  return `
+    <div class="dashboard-filter reports-section-tabs" role="tablist" aria-label="Report sections">
+      ${REPORT_SECTIONS.map(section => `
+        <button
+          class="dashboard-filter-btn ${active === section.key ? 'active' : ''}"
+          type="button"
+          role="tab"
+          aria-selected="${active === section.key ? 'true' : 'false'}"
+          onclick="setReportsSection('${section.key}')"
+        >${escHtml(section.label)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderWorkerPayoutChart(workersReport) {
+  const rows = workersReport.workerRows.filter(row => row.labour > 0 || row.worker).slice(0, 8);
+  const maxPayout = Math.max(1, ...rows.map(row => row.payout));
+  return `
+    <div class="card reports-panel">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Payout by worker</span>
+          <div class="dashboard-active-range">Paid invoices in selected period</div>
+        </div>
+        <span class="badge badge-blue">${fmt(workersReport.summary.totalPayout)}</span>
+      </div>
+      ${rows.length ? `
+        <div class="report-bar-list worker-chart-list">
+          ${rows.map(row => `
+            <div class="report-bar-row worker-bar-row">
+              <div class="report-bar-label"><strong>${escHtml(row.name)}</strong><span>${escHtml(row.role)} · ${row.lines} line${row.lines === 1 ? '' : 's'}</span></div>
+              <div class="report-bar-track"><span style="width:${Math.max(4, Math.round((row.payout / maxPayout) * 100))}%"></span></div>
+              <div class="report-bar-value"><strong>${fmt(row.payout)}</strong><span>${fmt(row.labour)} labour</span></div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="dashboard-empty-state">Worker payouts will appear after paid invoices have assigned labour.</div>'}
+    </div>
+  `;
+}
+
+function renderWorkerDailyChart(workersReport) {
+  const rows = workersReport.dailyRows.slice().reverse().slice(-14);
+  const maxPayout = Math.max(1, ...rows.map(row => row.payout));
+  return `
+    <div class="card reports-panel">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Daily payout history</span>
+          <div class="dashboard-active-range">Last active days in this range</div>
+        </div>
+        <span class="badge badge-green">${workersReport.dailyRows.length} days</span>
+      </div>
+      ${rows.length ? `
+        <div class="worker-daily-chart">
+          ${rows.map(row => `
+            <div class="worker-daily-column">
+              <div class="worker-daily-bar" style="height:${Math.max(8, Math.round((row.payout / maxPayout) * 120))}px"></div>
+              <strong>${fmt(row.payout)}</strong>
+              <span>${escHtml(row.label)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="dashboard-empty-state">No paid labour in this period.</div>'}
+    </div>
+  `;
+}
+
+function renderWorkerForm() {
+  const editing = state.workerEditId ? getWorkerById(state.workerEditId) : null;
+  return `
+    <div class="card reports-panel worker-form-panel">
+      <div class="card-header">
+        <span class="card-title">${editing ? 'Edit worker' : 'Add worker'}</span>
+        ${editing ? '<button class="btn btn-sm" onclick="cancelWorkerEdit()">Cancel</button>' : ''}
+      </div>
+      <div class="worker-form-grid">
+        <div class="form-row"><label>First name</label><input id="worker-first-name" type="text" value="${escHtml(editing?.first_name || '')}" /></div>
+        <div class="form-row"><label>Last name</label><input id="worker-last-name" type="text" value="${escHtml(editing?.last_name || '')}" /></div>
+        <div class="form-row"><label>Role</label><input id="worker-position" type="text" value="${escHtml(editing?.position || '')}" placeholder="Mechanic, MOT tester..." /></div>
+        <div class="form-row"><label>Labour %</label><input id="worker-percent" type="number" min="0" max="100" step="0.1" value="${escHtml(editing ? normalizeWorkerPercent(editing.commission_percent, 30) : 30)}" /></div>
+        <div class="form-row"><label>Status</label><select id="worker-active"><option value="active" ${editing?.active === false ? '' : 'selected'}>Active</option><option value="inactive" ${editing?.active === false ? 'selected' : ''}>Inactive</option></select></div>
+      </div>
+      <div class="settings-actions" style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveWorkerFromReport()">${editing ? 'Save worker' : 'Add worker'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkersSettingsTable(workersReport) {
+  return `
+    <div class="card reports-panel">
+      <div class="card-header"><span class="card-title">Workers</span><span class="badge badge-gray">${workersReport.workers.length}</span></div>
+      <div class="table-scroll">
+        <table class="data-table workers-settings-table">
+          <thead><tr><th>Name</th><th>Role</th><th>Labour %</th><th>Status</th><th>Period payout</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${workersReport.workers.length === 0 ? renderEmptyTableRow(6, 'Add your first worker to start tracking labour payout') : ''}
+            ${workersReport.workers.map(worker => {
+              const row = workersReport.workerRows.find(item => item.workerId === worker.id) || makeWorkerAggregationRow(worker);
+              return `
+                <tr>
+                  <td>
+                    <div class="worker-cell">
+                      <span class="worker-avatar">${escHtml(getWorkerInitials(worker))}</span>
+                      <div><strong>${escHtml(getWorkerDisplayName(worker))}</strong><div class="entity-subtitle">${escHtml(worker.last_name || '')}</div></div>
+                    </div>
+                  </td>
+                  <td>${escHtml(worker.position || '-')}</td>
+                  <td>${fmtPercent(worker.commission_percent)}</td>
+                  <td>${renderPill(worker.active ? 'Active' : 'Inactive', worker.active ? 'green' : 'gray')}</td>
+                  <td><strong>${fmt(row.payout || 0)}</strong></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="icon-action" title="Edit worker" onclick="editWorker(${worker.id})">${uiIcon('edit')}</button>
+                      <button class="icon-action" title="${worker.active ? 'Deactivate worker' : 'Activate worker'}" onclick="toggleWorkerActive(${worker.id})">${uiIcon(worker.active ? 'pause' : 'play')}</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkerPayoutDetail(workersReport) {
+  return `
+    <div class="card reports-panel">
+      <div class="card-header"><span class="card-title">Payout detail</span><span class="badge badge-green">${workersReport.assignmentRows.length} labour lines</span></div>
+      <div class="table-scroll">
+        <table class="data-table workers-payout-table">
+          <thead><tr><th>Paid</th><th>Invoice</th><th>Job</th><th>Customer</th><th>Worker</th><th>Labour</th><th>Rate</th><th>Payout</th></tr></thead>
+          <tbody>
+            ${workersReport.assignmentRows.length === 0 ? renderEmptyTableRow(8, 'No paid assigned labour in this period') : ''}
+            ${workersReport.assignmentRows.map(row => `
+              <tr>
+                <td>${fmtDate(row.paymentDate)}</td>
+                <td><strong>${escHtml(row.invoiceNumber)}</strong></td>
+                <td>${row.jobId ? `<button class="link-button" onclick="openJob(${Number(row.jobId)})">#${escHtml(row.jobId)}</button>` : '-'}</td>
+                <td>${escHtml(row.customerName)}<div class="entity-subtitle">${escHtml(row.registration || '-')}</div></td>
+                <td>${escHtml(row.workerName)}<div class="entity-subtitle">${escHtml(row.workerRole)}</div></td>
+                <td>${fmt(row.labour)}</td>
+                <td>${row.workerId ? fmtPercent(row.rate) : '-'}</td>
+                <td><strong>${fmt(row.payout)}</strong></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkerDailyHistory(workersReport) {
+  return `
+    <div class="card reports-panel">
+      <div class="card-header"><span class="card-title">Daily history</span><span class="badge badge-blue">${workersReport.dailyRows.length} days</span></div>
+      <div class="table-scroll">
+        <table class="data-table workers-daily-table">
+          <thead><tr><th>Date</th><th>Paid invoices</th><th>Labour lines</th><th>Labour</th><th>Payout</th></tr></thead>
+          <tbody>
+            ${workersReport.dailyRows.length === 0 ? renderEmptyTableRow(5, 'No worker payout history in this period') : ''}
+            ${workersReport.dailyRows.map(row => `
+              <tr>
+                <td><strong>${fmtDate(row.date)}</strong><div class="entity-subtitle">${escHtml(row.label)}</div></td>
+                <td>${row.invoices}</td>
+                <td>${row.lines}</td>
+                <td>${fmt(row.labour)}</td>
+                <td><strong>${fmt(row.payout)}</strong></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderReportWorkers(report) {
+  const workersReport = report.workersReport;
+  return `
+    <div class="reports-summary-grid workers-summary-grid">
+      ${ReportKpi({ label: 'Active workers', value: String(workersReport.summary.activeWorkers), sub: `${workersReport.workers.length} total`, tone: 'blue' })}
+      ${ReportKpi({ label: 'Paid invoices', value: String(workersReport.summary.paidInvoices), sub: report.range.label, tone: 'green' })}
+      ${ReportKpi({ label: 'Labour assigned', value: fmt(workersReport.summary.totalLabour), sub: `${workersReport.summary.assignedLines} labour lines`, tone: 'amber' })}
+      ${ReportKpi({ label: 'Payout due', value: fmt(workersReport.summary.totalPayout), sub: 'From paid labour only', tone: 'green' })}
+    </div>
+    <div class="reports-two-grid">
+      ${renderWorkerPayoutChart(workersReport)}
+      ${renderWorkerDailyChart(workersReport)}
+    </div>
+    <div class="workers-management-grid">
+      ${renderWorkerForm()}
+      ${renderWorkersSettingsTable(workersReport)}
+    </div>
+    ${renderWorkerPayoutDetail(workersReport)}
+    ${renderWorkerDailyHistory(workersReport)}
+  `;
+}
+
 function renderReportsBody(report) {
+  if (normalizeReportsSection(state.reportsSection) === 'workers') return renderReportWorkers(report);
   return `
     ${!report.hasAnyData ? '<div class="reports-empty-banner">No report data available for this period.</div>' : ''}
     ${renderReportSummaryCards(report.summary)}
@@ -6673,6 +7175,7 @@ function renderReportsBody(report) {
 
 function renderReports() {
   const report = buildReportsData();
+  const activeSection = normalizeReportsSection(state.reportsSection);
   return `
     <div class="reports-shell">
       <div class="reports-toolbar">
@@ -6681,11 +7184,12 @@ function renderReports() {
           <div class="reports-period">${escHtml(report.range.label)}</div>
         </div>
         <div class="reports-actions">
-          <button class="btn btn-primary" onclick="exportReportCsv()">Export CSV</button>
+          <button class="btn btn-primary" onclick="exportReportCsv()">${activeSection === 'workers' ? 'Export Workers CSV' : 'Export CSV'}</button>
           <button class="btn" onclick="exportReportPdf()">Export PDF</button>
           <button class="btn" onclick="printReport()">Print Report</button>
         </div>
       </div>
+      ${renderReportsSectionTabs()}
       ${renderReportsFilterControls(report)}
       ${renderReportsBody(report)}
     </div>
@@ -6732,8 +7236,59 @@ function buildReportsCsv(report) {
   return '\uFEFF' + [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
 }
 
+function buildWorkersReportCsv(report) {
+  const headers = [
+    'Report period',
+    'Paid date',
+    'Invoice number',
+    'Job ID',
+    'Customer name',
+    'Vehicle registration',
+    'Worker name',
+    'Worker role',
+    'Labour description',
+    'Labour amount',
+    'Worker rate',
+    'Payout',
+  ];
+  const period = `${report.range.startIso} to ${report.range.endIso}`;
+  const rows = report.workersReport.assignmentRows.map(row => [
+    period,
+    row.paymentDate,
+    row.invoiceNumber,
+    row.jobId || '',
+    row.customerName,
+    row.registration,
+    row.workerName,
+    row.workerRole,
+    row.description,
+    fmt(row.labour),
+    row.workerId ? fmtPercent(row.rate) : '',
+    fmt(row.payout),
+  ]);
+  return '\uFEFF' + [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+}
+
 function exportReportCsv() {
   const report = buildReportsData();
+  if (normalizeReportsSection(state.reportsSection) === 'workers') {
+    if (!report.workersReport.assignmentRows.length) {
+      alert('No worker payout data available for this period.');
+      return;
+    }
+    const csv = buildWorkersReportCsv(report);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `garage-crm-workers-${report.range.startIso}-to-${report.range.endIso}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Workers CSV exported');
+    return;
+  }
   if (!report.periodInvoices.length) {
     alert('No report data available for this period.');
     return;
@@ -6815,6 +7370,68 @@ async function printReport(options = {}) {
 
 function exportReportPdf() {
   printReport({ saveAsPdf: true });
+}
+
+function readWorkerFormPayload() {
+  const firstName = String(document.getElementById('worker-first-name')?.value || '').trim();
+  const lastName = String(document.getElementById('worker-last-name')?.value || '').trim();
+  const position = String(document.getElementById('worker-position')?.value || '').trim();
+  const commissionPercent = normalizeWorkerPercent(document.getElementById('worker-percent')?.value, 30);
+  const active = String(document.getElementById('worker-active')?.value || 'active') !== 'inactive';
+  return { firstName, lastName, position, commissionPercent, active };
+}
+
+async function saveWorkerFromReport() {
+  const payload = readWorkerFormPayload();
+  if (!payload.firstName && !payload.lastName) {
+    alert('Enter worker first name or last name.');
+    return;
+  }
+  const editId = normalizeWorkerId(state.workerEditId);
+  const existing = editId ? getWorkerById(editId) : null;
+  const worker = {
+    id: editId,
+    first_name: payload.firstName,
+    last_name: payload.lastName,
+    position: payload.position,
+    commission_percent: payload.commissionPercent,
+    active: payload.active,
+    created_at: existing?.created_at || new Date().toISOString(),
+  };
+  try {
+    await invoke('save_worker', { worker });
+    state.workerEditId = null;
+    await syncAfterCloudMutation();
+    await loadBusinessStateFromBackend();
+    toast('Worker saved');
+    await renderInPlace();
+  } catch (error) {
+    alert(getErrorMessage(error));
+  }
+}
+
+function editWorker(workerId) {
+  state.workerEditId = normalizeWorkerId(workerId);
+  renderInPlace();
+}
+
+function cancelWorkerEdit() {
+  state.workerEditId = null;
+  renderInPlace();
+}
+
+async function toggleWorkerActive(workerId) {
+  const worker = getWorkerById(workerId);
+  if (!worker) return;
+  try {
+    await invoke('save_worker', { worker: { ...worker, active: worker.active === false } });
+    await syncAfterCloudMutation();
+    await loadBusinessStateFromBackend();
+    toast(worker.active === false ? 'Worker activated' : 'Worker deactivated');
+    await renderInPlace();
+  } catch (error) {
+    alert(getErrorMessage(error));
+  }
 }
 
 function progressPct(s) { return {New:5,Diagnosing:20,'Waiting Parts':40,'In Progress':65,Ready:100,Completed:100,Cancelled:0}[s]||0; }
@@ -8727,6 +9344,7 @@ async function renderJobCard() {
   const job = state.jobs.find(j => j.id === state.selectedJob);
   if (!job) return '<p>Job not found</p>';
   state.jobLines = await invoke('get_job_lines', { jobId: job.id });
+  mergeAllJobLinesForJob(job.id, state.jobLines);
   const subtotal = state.jobLines.reduce((s,l) => s + l.qty * l.unit_price, 0);
   const vatRate = getAppliedVatRate();
   const vat = getVatAmount(subtotal, vatRate);
@@ -11666,7 +12284,9 @@ function getNewLineFocusId(lineId) {
 }
 
 async function addJobLine(jobId) {
-  const lineId = await invoke('save_job_line', { line: { id: null, job_id: jobId, inventory_item_id: null, line_type: DEFAULT_LINE_TYPE, description: '', qty: 1.0, unit_price: 0.0, line_status: 'confirmed' } });
+  const newLine = { id: null, job_id: jobId, inventory_item_id: null, worker_id: null, line_type: DEFAULT_LINE_TYPE, description: '', qty: 1.0, unit_price: 0.0, line_status: 'confirmed' };
+  const lineId = await invoke('save_job_line', { line: newLine });
+  state.allJobLines = [...(state.allJobLines || []), { ...newLine, id: lineId }];
   state.selectedJob = jobId;
   state.pendingFocusId = getNewLineFocusId(lineId);
   state.pendingFocusSelectAll = false;
@@ -11689,7 +12309,9 @@ async function handleJobLineUnitPriceEnter(event, jobId, lineId) {
 async function updateLine(lineId, field, value) {
   const line = getLineById(lineId);
   if (!line) return;
-  const nextValue = field === 'line_status' ? normalizeLineStatus(value) : value;
+  const nextValue = field === 'line_status'
+    ? normalizeLineStatus(value)
+    : (field === 'worker_id' ? normalizeWorkerId(value) : value);
   if (field === 'line_status') {
     if (normalizeLineStatus(line.line_status) === nextValue) return;
   } else if (line[field] === nextValue) {
@@ -11822,9 +12444,10 @@ async function deleteLine(lineId) {
 }
 
 async function addInvoiceLine(jobId) {
-  const newLine = { id: null, job_id: jobId, inventory_item_id: null, line_type: DEFAULT_LINE_TYPE, description: '', qty: 1.0, unit_price: 0.0, line_status: 'confirmed' };
+  const newLine = { id: null, job_id: jobId, inventory_item_id: null, worker_id: null, line_type: DEFAULT_LINE_TYPE, description: '', qty: 1.0, unit_price: 0.0, line_status: 'confirmed' };
   const lineId = await invoke('save_job_line', { line: newLine });
   state.invoiceLines = [...state.invoiceLines, { ...newLine, id: lineId }];
+  state.allJobLines = [...(state.allJobLines || []), { ...newLine, id: lineId }];
   syncInvoiceEditorTotalsUi();
   setInvoiceEditorDirty(true);
   state.pendingFocusId = getNewLineFocusId(lineId);
@@ -11853,6 +12476,7 @@ function buildInvoicePayload(invoiceId, overrides = {}) {
     status,
     payment_method: String(overrides.payment_method ?? inv.payment_method ?? ''),
     paid_amount: normalizeInvoicePaidAmount(overrides.paid_amount ?? inv.paid_amount ?? 0),
+    paid_at: String(overrides.paid_at ?? inv.paid_at ?? ''),
     notes: String(overrides.notes ?? inv.notes ?? ''),
     vat_rate: getAppliedVatRate(),
   };
@@ -11903,8 +12527,9 @@ async function handleInvoiceStatusChange(invoiceId, value) {
   const paidAmount = status === 'Paid'
     ? invoiceTotal
     : (status === 'Partial' ? normalizeInvoicePaidAmount(inv.paid_amount ?? 0, invoiceTotal) : 0);
+  const paidAt = status === 'Paid' ? (inv.paid_at || formatDateInputValue()) : '';
   const localOnly = state.invoiceEditorId === invoiceId;
-  await saveInvoice(invoiceId, { status, paid_amount: paidAmount }, { rerender: !localOnly, syncCloud: !localOnly });
+  await saveInvoice(invoiceId, { status, paid_amount: paidAmount, paid_at: paidAt }, { rerender: !localOnly, syncCloud: !localOnly });
   if (!localOnly) return;
   setInvoiceEditorDirty(true);
   await refreshInvoiceEditorModal();
@@ -12007,6 +12632,7 @@ async function markPaid(invoiceId) {
     inv.paid_amount = getInvoiceTotalAmount(inv);
     inv.paidAmount = inv.paid_amount;
     inv.balanceDue = 0;
+    inv.paid_at = formatDateInputValue();
   }
   if (state.invoiceEditorId === invoiceId) {
     setInvoiceEditorDirty(true);
@@ -12212,7 +12838,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, copyVehicleVin, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, setAdminSection, refreshAdminDashboard, saveAdminReferralCode, editAdminReferralCode, cancelAdminReferralEdit, markAdminReferralCommissionPaid, setBillingReferralCode, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, setReportsSection, updateReportsCustomDate, saveWorkerFromReport, editWorker, cancelWorkerEdit, toggleWorkerActive, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, copyVehicleVin, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, setAdminSection, refreshAdminDashboard, saveAdminReferralCode, editAdminReferralCode, cancelAdminReferralEdit, markAdminReferralCommissionPaid, setBillingReferralCode, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
 
 applyRouteFromLocation();
