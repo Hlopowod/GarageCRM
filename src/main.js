@@ -33,6 +33,15 @@ import {
   syncBillingStatus as syncBillingStatusFromStripe,
   syncCheckoutSession,
 } from './lib/billing';
+import { useAdminAuth } from './hooks/useAdminAuth';
+import { fetchAdminDashboardStats } from './services/adminStats';
+import {
+  createAdminReferralCode,
+  fetchAdminReferrals,
+  markAdminReferralCommissionPaid as markAdminReferralCommissionPaidService,
+  updateAdminReferralCode,
+} from './services/adminReferrals';
+import { normalizeAdminSection, renderAdminDashboardPage } from './pages/admin/AdminDashboard';
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let state = {
@@ -74,6 +83,28 @@ let state = {
   billingSnapshot: null,
   billingNotice: null,
   billingPendingCheckout: null,
+  billingReferralCode: '',
+  adminAccess: {
+    userId: '',
+    checked: false,
+    isAdmin: false,
+    loading: false,
+    error: '',
+    profile: null,
+  },
+  adminSection: 'dashboard',
+  adminStats: {
+    loading: false,
+    error: '',
+    data: null,
+  },
+  adminReferrals: {
+    loading: false,
+    error: '',
+    data: null,
+  },
+  adminReferralEditId: '',
+  adminReferralSaving: false,
   settingsCategory: 'garage',
   autoSmsReminderRunKey: '',
   sorts: {},
@@ -754,6 +785,7 @@ const SMS_TEMPLATE_VARIABLES = Object.freeze([
 ]);
 const NAV_ITEMS = [
   { screen:'dashboard', path:'M3 3h5v5H3zM9 3h5v5H9zM3 9h5v5H3zM9 9h5v5H9z', label:'Dashboard' },
+  { screen:'admin', path:'M8 2l5 2v3c0 3.2-2 5.9-5 7-3-1.1-5-3.8-5-7V4l5-2zm0 3v6m-2-3h4', label:'Admin', adminOnly:true },
   { screen:'clients', path:'M8 8a3 3 0 100-6 3 3 0 000 6zm-5 9a5 5 0 0110 0H3z', label:'Customers' },
   { screen:'vehicles', path:'M3 8l1.5-3h9L15 8v5H3V8zM5 13v1a1 1 0 002 0v-1M11 13v1a1 1 0 002 0v-1', label:'Vehicles' },
   { screen:'jobs', path:'M4 2h8l3 3v11H4V2zm3 5h4m-4 3h4m-4 3h2', label:'Jobs' },
@@ -775,6 +807,7 @@ const SETTINGS_CATEGORIES = [
 ];
 const NAV_ORDER_STORAGE_KEY = 'garage-crm.nav-order';
 const BILLING_PENDING_CHECKOUT_STORAGE_KEY = 'garage-crm.billing.pending-checkout';
+const BILLING_REFERRAL_CODE_STORAGE_KEY = 'garage-crm.billing.referral-code';
 const GARAGE_SETUP_PENDING_EMAIL_STORAGE_KEY = 'garage-crm.garage-setup.pending-email';
 let navPointerState = null;
 let suppressNavClick = false;
@@ -1070,7 +1103,13 @@ function getBookableBookingDateTime(presetDate = '', presetTime = '') {
 
   return { date: nextDate, time: nextTime || getBookingTimeOptions()[0] || '09:00' };
 }
-function getDefaultNavOrder() { return NAV_ITEMS.map(item => item.screen); }
+function isCurrentUserAdmin() {
+  return Boolean(state.adminAccess?.isAdmin);
+}
+function getAvailableNavItems() {
+  return NAV_ITEMS.filter(item => !item.adminOnly || isCurrentUserAdmin());
+}
+function getDefaultNavOrder() { return getAvailableNavItems().map(item => item.screen); }
 function normalizeNavOrder(order) {
   const allowed = new Set(getDefaultNavOrder());
   const seen = new Set();
@@ -1114,8 +1153,321 @@ function setNavOrder(order) {
 }
 function getOrderedNavItems() {
   const order = getNavOrder();
-  const itemMap = new Map(NAV_ITEMS.map(item => [item.screen, item]));
+  const itemMap = new Map(getAvailableNavItems().map(item => [item.screen, item]));
   return order.map(screen => itemMap.get(screen)).filter(Boolean);
+}
+function getCurrentAppPath() {
+  if (typeof window === 'undefined') return '/';
+  return window.location.pathname.replace(/\/+$/, '') || '/';
+}
+function isAdminRoutePath() {
+  const path = getCurrentAppPath();
+  return path === '/admin' || path === '/admin/dashboard';
+}
+function setAppPath(path, { replace = false } = {}) {
+  if (typeof window === 'undefined' || isAuthCallbackRoute()) return;
+  const targetPath = path || '/';
+  if (getCurrentAppPath() === targetPath) return;
+  try {
+    window.history[replace ? 'replaceState' : 'pushState']({}, document.title, targetPath);
+  } catch (error) {
+    console.warn('Unable to update route', error);
+  }
+}
+function setRouteForScreen(screen, options = {}) {
+  setAppPath(screen === 'admin' ? '/admin/dashboard' : '/', options);
+}
+function applyRouteFromLocation() {
+  captureBillingReferralCodeFromUrl();
+  if (isAdminRoutePath()) {
+    state.screen = 'admin';
+    state.adminSection = 'dashboard';
+  } else if (state.screen === 'admin') {
+    state.screen = 'dashboard';
+    state.adminSection = 'dashboard';
+  }
+}
+function resetAdminAccess() {
+  state.adminAccess = {
+    userId: '',
+    checked: false,
+    isAdmin: false,
+    loading: false,
+    error: '',
+    profile: null,
+  };
+}
+function resetAdminStats() {
+  state.adminStats = {
+    loading: false,
+    error: '',
+    data: null,
+  };
+}
+function resetAdminReferrals() {
+  state.adminReferrals = {
+    loading: false,
+    error: '',
+    data: null,
+  };
+  state.adminReferralEditId = '';
+  state.adminReferralSaving = false;
+}
+async function ensureAdminAccess({ force = false } = {}) {
+  const userId = getCloudSession().user_id || '';
+  if (!userId) {
+    resetAdminAccess();
+    resetAdminStats();
+    resetAdminReferrals();
+    return false;
+  }
+  const current = state.adminAccess || {};
+  if (current.userId && current.userId !== userId) {
+    resetAdminStats();
+    resetAdminReferrals();
+  }
+  if (!force && current.checked && current.userId === userId) {
+    return Boolean(current.isAdmin);
+  }
+
+  state.adminAccess = {
+    userId,
+    checked: false,
+    isAdmin: false,
+    loading: true,
+    error: '',
+    profile: null,
+  };
+
+  try {
+    const adminAuth = await useAdminAuth();
+    const isAdmin = Boolean(adminAuth.isAdmin);
+    state.adminAccess = {
+      userId,
+      checked: true,
+      isAdmin,
+      loading: false,
+      error: adminAuth.error || '',
+      profile: adminAuth.profile || null,
+    };
+    return isAdmin;
+  } catch (error) {
+    const message = getErrorMessage(error);
+    console.warn('Unable to verify admin access', error);
+    state.adminAccess = {
+      userId,
+      checked: true,
+      isAdmin: false,
+      loading: false,
+      error: message,
+      profile: null,
+    };
+    resetAdminStats();
+    resetAdminReferrals();
+    return false;
+  }
+}
+async function loadAdminDashboardStats({ force = false } = {}) {
+  if (!isCurrentUserAdmin()) return null;
+  const current = state.adminStats || {};
+  if (!force && current.data && !current.error) return current.data;
+  if (current.loading) return current.data || null;
+
+  state.adminStats = {
+    loading: true,
+    error: '',
+    data: force ? null : (current.data || null),
+  };
+
+  try {
+    const data = await fetchAdminDashboardStats();
+    state.adminStats = {
+      loading: false,
+      error: '',
+      data,
+    };
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(error);
+    console.warn('Unable to load admin statistics', error);
+    state.adminStats = {
+      loading: false,
+      error: message,
+      data: null,
+    };
+    return null;
+  }
+}
+async function loadAdminReferrals({ force = false } = {}) {
+  if (!isCurrentUserAdmin()) return null;
+  const current = state.adminReferrals || {};
+  if (!force && current.data && !current.error) return current.data;
+  if (current.loading) return current.data || null;
+
+  state.adminReferrals = {
+    loading: true,
+    error: '',
+    data: force ? null : (current.data || null),
+  };
+
+  try {
+    const data = await fetchAdminReferrals();
+    state.adminReferrals = {
+      loading: false,
+      error: '',
+      data,
+    };
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(error);
+    console.warn('Unable to load admin referrals', error);
+    state.adminReferrals = {
+      loading: false,
+      error: message,
+      data: current.data || null,
+    };
+    return null;
+  }
+}
+function renderAdminScreenContent() {
+  let adminStats = state.adminStats || { loading: false, error: '', data: null };
+  let adminReferrals = state.adminReferrals || { loading: false, error: '', data: null };
+
+  if (!adminStats.loading && !adminStats.data && !adminStats.error) {
+    void loadAdminDashboardStats({ force: true }).then(() => {
+      if (state.screen === 'admin') void renderInPlace();
+    });
+    adminStats = state.adminStats || adminStats;
+  }
+  if (state.adminSection === 'referrals' && !adminReferrals.loading && !adminReferrals.data && !adminReferrals.error) {
+    void loadAdminReferrals({ force: true }).then(() => {
+      if (state.screen === 'admin' && state.adminSection === 'referrals') void renderInPlace();
+    });
+    adminReferrals = state.adminReferrals || adminReferrals;
+  }
+
+  return renderAdminDashboardPage({
+    section: state.adminSection,
+    stats: adminStats.data || null,
+    referrals: adminReferrals.data || null,
+    loading: Boolean(adminStats.loading),
+    error: adminStats.error || '',
+    referralsLoading: Boolean(adminReferrals.loading),
+    referralsError: adminReferrals.error || '',
+    referralSaving: Boolean(state.adminReferralSaving),
+    referralEditId: state.adminReferralEditId || '',
+    profile: state.adminAccess?.profile || null,
+  });
+}
+async function refreshAdminDashboard() {
+  if (!(await ensureAdminAccess({ force: true }))) {
+    state.screen = 'dashboard';
+    setRouteForScreen('dashboard', { replace: true });
+    await renderInPlace();
+    return;
+  }
+  await loadAdminDashboardStats({ force: true });
+  if (state.adminSection === 'referrals') await loadAdminReferrals({ force: true });
+  await renderInPlace();
+}
+async function setAdminSection(section) {
+  state.adminSection = normalizeAdminSection(section);
+  if (state.adminSection === 'referrals') {
+    void loadAdminReferrals().then(() => {
+      if (state.screen === 'admin' && state.adminSection === 'referrals') void renderInPlace();
+    });
+  }
+  await renderInPlace();
+}
+function getAdminReferralFormInput() {
+  const code = String(document.getElementById('admin-referral-code')?.value || '').trim().toUpperCase();
+  const referrerName = String(document.getElementById('admin-referral-name')?.value || '').trim();
+  const referrerEmail = String(document.getElementById('admin-referral-email')?.value || '').trim();
+  const commissionPercent = Number(document.getElementById('admin-referral-percent')?.value || 20);
+  const payoutMonths = Number(document.getElementById('admin-referral-months')?.value || 3);
+  const status = String(document.getElementById('admin-referral-status')?.value || 'active') === 'paused' ? 'paused' : 'active';
+  const notes = String(document.getElementById('admin-referral-notes')?.value || '').trim();
+  return {
+    code,
+    referrerName,
+    referrerEmail,
+    commissionPercent: Number.isFinite(commissionPercent) ? commissionPercent : 20,
+    payoutMonths: Number.isFinite(payoutMonths) ? payoutMonths : 3,
+    status,
+    notes,
+  };
+}
+async function saveAdminReferralCode() {
+  if (!isCurrentUserAdmin()) return;
+  const editId = state.adminReferralEditId || '';
+  const input = getAdminReferralFormInput();
+
+  if (!editId && !/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(input.code)) {
+    state.adminReferrals = { ...(state.adminReferrals || {}), loading: false, error: 'Use a code like GARAGE20, 3-32 characters.', data: state.adminReferrals?.data || null };
+    await renderInPlace();
+    return;
+  }
+  if (!input.referrerName) {
+    state.adminReferrals = { ...(state.adminReferrals || {}), loading: false, error: 'Referrer name is required.', data: state.adminReferrals?.data || null };
+    await renderInPlace();
+    return;
+  }
+
+  state.adminReferralSaving = true;
+  state.adminReferrals = { ...(state.adminReferrals || {}), error: '' };
+  await renderInPlace();
+
+  try {
+    if (editId) {
+      await updateAdminReferralCode(editId, input);
+    } else {
+      await createAdminReferralCode(input);
+    }
+    state.adminReferralEditId = '';
+    await loadAdminReferrals({ force: true });
+  } catch (error) {
+    state.adminReferrals = {
+      loading: false,
+      error: getErrorMessage(error),
+      data: state.adminReferrals?.data || null,
+    };
+  } finally {
+    state.adminReferralSaving = false;
+    await renderInPlace();
+  }
+}
+async function editAdminReferralCode(id) {
+  state.adminReferralEditId = String(id || '');
+  await renderInPlace();
+}
+async function cancelAdminReferralEdit() {
+  state.adminReferralEditId = '';
+  await renderInPlace();
+}
+async function markAdminReferralCommissionPaid(id) {
+  if (!isCurrentUserAdmin()) return;
+  const commissionId = String(id || '');
+  if (!commissionId) return;
+  const confirmed = typeof window === 'undefined' ? true : window.confirm('Mark this referral commission as paid?');
+  if (!confirmed) return;
+
+  state.adminReferralSaving = true;
+  state.adminReferrals = { ...(state.adminReferrals || {}), error: '' };
+  await renderInPlace();
+
+  try {
+    await markAdminReferralCommissionPaidService(commissionId);
+    await loadAdminReferrals({ force: true });
+  } catch (error) {
+    state.adminReferrals = {
+      loading: false,
+      error: getErrorMessage(error),
+      data: state.adminReferrals?.data || null,
+    };
+  } finally {
+    state.adminReferralSaving = false;
+    await renderInPlace();
+  }
 }
 function normalizeSettingsCategory(category) {
   const key = String(category || '').trim().toLowerCase();
@@ -1766,6 +2118,22 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+function renderVehicleVinInline(vehicle) {
+  const vin = String(vehicle?.vin || '').trim();
+  if (!vin) return '';
+  return `
+    <div class="vehicle-vin-inline">
+      <span>VIN: ${escHtml(vin)}</span>
+      <button class="copy-icon-btn" type="button" data-vin="${escHtml(vin)}" onclick="copyVehicleVin(this)" title="Copy VIN" aria-label="Copy VIN">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M5.5 5.5h7v8h-7z"></path>
+          <path d="M3.5 10.5h-1v-8h7v1"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
 function snapshotActiveField(root = document) {
   const active = document.activeElement;
   if (!active) return null;
@@ -2212,7 +2580,10 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
       </div>
 
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Vehicle</div>
+        <div class="vehicle-card-header">
+          <div class="card-title">Vehicle</div>
+          ${renderVehicleVinInline(vehicle)}
+        </div>
         ${vehicle ? `
         <div class="detail-grid">
           <div class="detail-item"><div class="dl">Registration</div><div class="dv" style="font-weight:600">${escHtml(vehicle.registration)}</div></div>
@@ -2956,6 +3327,58 @@ function setPendingBillingCheckout(value = null) {
   }
 }
 
+function normalizeBillingReferralCode(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 32);
+}
+
+function loadStoredBillingReferralCode() {
+  try {
+    return normalizeBillingReferralCode(window.localStorage.getItem(BILLING_REFERRAL_CODE_STORAGE_KEY) || '');
+  } catch {
+    return '';
+  }
+}
+
+function persistBillingReferralCode(code) {
+  try {
+    if (code) {
+      window.localStorage.setItem(BILLING_REFERRAL_CODE_STORAGE_KEY, code);
+    } else {
+      window.localStorage.removeItem(BILLING_REFERRAL_CODE_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+function setBillingReferralCode(value) {
+  const code = normalizeBillingReferralCode(value);
+  state.billingReferralCode = code;
+  persistBillingReferralCode(code);
+  const input = document.getElementById('billing-referral-code');
+  if (input && input.value !== code) input.value = code;
+}
+
+function captureBillingReferralCodeFromUrl() {
+  if (typeof window === 'undefined') return;
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const fromUrl = normalizeBillingReferralCode(params.get('ref') || params.get('referral') || params.get('referral_code') || '');
+    if (fromUrl) {
+      setBillingReferralCode(fromUrl);
+      return;
+    }
+    if (!state.billingReferralCode) {
+      state.billingReferralCode = loadStoredBillingReferralCode();
+    }
+  } catch {
+    if (!state.billingReferralCode) state.billingReferralCode = loadStoredBillingReferralCode();
+  }
+}
+
 async function syncPendingBillingCheckout({ showNotice = false } = {}) {
   const pending = getPendingBillingCheckout();
   if (!pending?.sessionId || !pending?.garageId) return null;
@@ -3108,8 +3531,23 @@ function renderBillingPlanCard(plan, snapshot) {
   `;
 }
 
+function renderBillingReferralCard() {
+  const code = state.billingReferralCode || loadStoredBillingReferralCode();
+  state.billingReferralCode = code;
+  return `
+    <div class="card billing-referral-card">
+      <div>
+        <div class="settings-kicker">Referral</div>
+        <div class="billing-referral-title">Referral code</div>
+      </div>
+      <input id="billing-referral-code" type="text" maxlength="32" value="${escHtml(code)}" placeholder="Optional" oninput="setBillingReferralCode(this.value)" />
+    </div>
+  `;
+}
+
 async function renderBilling() {
   try {
+    captureBillingReferralCodeFromUrl();
     await syncPendingBillingCheckout();
     const snapshot = getEffectiveBillingSnapshot(await loadBillingSnapshot());
     state.billingSnapshot = snapshot;
@@ -3139,6 +3577,8 @@ async function renderBilling() {
         </div>
 
         ${renderBillingNotice()}
+
+        ${isAdmin ? '' : renderBillingReferralCard()}
 
         <div class="billing-grid">
           <div class="card billing-card">
@@ -3200,6 +3640,7 @@ async function renderBilling() {
 async function startBillingCheckout(plan) {
   let checkoutUrl = '';
   try {
+    captureBillingReferralCodeFromUrl();
     const normalizedPlan = normalizeBillingPlanKey(plan);
     if (normalizedPlan === 'pit_stop') {
       await openBillingPortal();
@@ -3220,7 +3661,7 @@ async function startBillingCheckout(plan) {
       if (isBillingViewActive()) await renderInPlace();
       return;
     }
-    const checkout = await createCheckoutSession(normalizedPlan, snapshot.garage.id);
+    const checkout = await createCheckoutSession(normalizedPlan, snapshot.garage.id, state.billingReferralCode || '');
     checkoutUrl = checkout.url;
     if (checkout.sessionId) {
       setPendingBillingCheckout({
@@ -3297,6 +3738,31 @@ async function copyCheckoutLink() {
     input?.select?.();
     document.execCommand('copy');
     toast('Checkout link copied');
+  }
+}
+
+async function copyVehicleVin(source) {
+  const vin = String(
+    typeof source === 'string'
+      ? source
+      : (source?.dataset?.vin || source?.closest?.('[data-vin]')?.dataset?.vin || '')
+  ).trim();
+  if (!vin) return;
+
+  try {
+    await navigator.clipboard.writeText(vin);
+    toast('VIN copied');
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = vin;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
+    toast('VIN copied');
   }
 }
 
@@ -4008,7 +4474,7 @@ function setTopbarPrimaryButton({ label, onClick, hidden = false }) {
 }
 
 function updateTopbarForScreen(screen = state.screen) {
-  const titles = { dashboard:'Dashboard', clients:'Customers', vehicles:'Vehicles', jobs:'Jobs', invoices:'Invoices', reports:'Reports', inventory:'Inventory', calendar:'Calendar', messages:'Messages', billing:'Billing', settings:'Settings' };
+  const titles = { dashboard:'Dashboard', admin:'Admin', clients:'Customers', vehicles:'Vehicles', jobs:'Jobs', invoices:'Invoices', reports:'Reports', inventory:'Inventory', calendar:'Calendar', messages:'Messages', billing:'Billing', settings:'Settings' };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.textContent = titles[screen] || screen;
 }
@@ -4087,11 +4553,21 @@ async function nav(screen) {
   }
   const previousScreen = state.screen;
   if (!isCloudSignedIn() && screen !== 'settings') {
+    if (screen === 'admin') setRouteForScreen('dashboard', { replace: true });
     setSignedOutWorkspaceNotice();
     screen = 'settings';
   }
+  if (screen === 'admin') {
+    const isAdmin = await ensureAdminAccess();
+    if (!isAdmin) {
+      resetAdminStats();
+      screen = 'dashboard';
+      setRouteForScreen('dashboard', { replace: true });
+    }
+  }
   if (screen !== previousScreen) state.searchQuery = '';
   state.screen = screen;
+  setRouteForScreen(screen);
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === screen));
   updateTopbarForScreen(screen);
   closeMobileNav();
@@ -4354,6 +4830,8 @@ async function render() {
     const c = document.getElementById('content');
     await loadAll();
     if (!isCloudSignedIn()) {
+      resetAdminAccess();
+      if (isAdminRoutePath()) setRouteForScreen('dashboard', { replace: true });
       state.screen = 'settings';
       setSignedOutWorkspaceNotice();
       setMobileNavOpen(false);
@@ -4363,6 +4841,12 @@ async function render() {
       bindEvents();
       return;
     }
+    await ensureAdminAccess();
+    if (state.screen === 'admin' && !isCurrentUserAdmin()) {
+      resetAdminStats();
+      state.screen = 'dashboard';
+      setRouteForScreen('dashboard', { replace: true });
+    }
     app.classList.remove('auth-only');
     authGate.innerHTML = '';
     renderSidebarNav();
@@ -4370,6 +4854,7 @@ async function render() {
     updateTopbarForScreen(state.screen);
     applyAppSettingsToChrome();
     if (state.screen === 'dashboard') c.innerHTML = renderDashboard();
+    else if (state.screen === 'admin') c.innerHTML = renderAdminScreenContent();
     else if (state.screen === 'clients') { if (state.selectedClient) c.innerHTML = renderClientProfile(); else c.innerHTML = renderClients(); }
     else if (state.screen === 'vehicles') c.innerHTML = renderVehicles();
     else if (state.screen === 'jobs') { if (state.selectedJob !== null) c.innerHTML = await renderJobCard(); else c.innerHTML = renderJobs(); }
@@ -8315,7 +8800,10 @@ async function renderJobCard() {
         ${client ? `<div class="flex gap-8"><div class="avatar">${initials(client.name)}</div><div><div style="font-weight:500">${escHtml(client.name)}</div><div class="text-sm text-muted">${escHtml(client.phone||'')} · ${escHtml(client.email||'')}</div></div></div>` : ''}
       </div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Vehicle</div>
+        <div class="vehicle-card-header">
+          <div class="card-title">Vehicle</div>
+          ${renderVehicleVinInline(vehicle)}
+        </div>
         ${vehicle ? `
         <div class="detail-grid">
           <div class="detail-item"><div class="dl">Registration</div><div class="dv" style="font-weight:600">${escHtml(vehicle.registration)}</div></div>
@@ -11616,6 +12104,8 @@ async function renderInPlace() {
     const authGate = document.getElementById('auth-gate');
     const c = document.getElementById('content');
     if (!isCloudSignedIn()) {
+      resetAdminAccess();
+      if (isAdminRoutePath()) setRouteForScreen('dashboard', { replace: true });
       state.screen = 'settings';
       setMobileNavOpen(false);
       document.getElementById('app').classList.add('auth-only');
@@ -11624,6 +12114,12 @@ async function renderInPlace() {
       bindEvents();
       return;
     }
+    await ensureAdminAccess();
+    if (state.screen === 'admin' && !isCurrentUserAdmin()) {
+      resetAdminStats();
+      state.screen = 'dashboard';
+      setRouteForScreen('dashboard', { replace: true });
+    }
     document.getElementById('app').classList.remove('auth-only');
     authGate.innerHTML = '';
     renderSidebarNav();
@@ -11631,6 +12127,7 @@ async function renderInPlace() {
     updateTopbarForScreen(state.screen);
     const activeSnapshot = snapshotActiveField(c);
     if (state.screen === 'dashboard') c.innerHTML = renderDashboard();
+    else if (state.screen === 'admin') c.innerHTML = renderAdminScreenContent();
     else if (state.screen === 'clients' && !state.selectedClient) c.innerHTML = renderClients();
     else if (state.screen === 'vehicles') c.innerHTML = renderVehicles();
     else if (state.screen === 'jobs') { if (state.selectedJob !== null) c.innerHTML = await renderJobCard(); else c.innerHTML = renderJobs(); }
@@ -11715,8 +12212,14 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, updateReportsCustomDate, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, copyVehicleVin, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, setAdminSection, refreshAdminDashboard, saveAdminReferralCode, editAdminReferralCode, cancelAdminReferralEdit, markAdminReferralCommissionPaid, setBillingReferralCode, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
+
+applyRouteFromLocation();
+window.addEventListener('popstate', () => {
+  applyRouteFromLocation();
+  void render();
+});
 
 initializeSupabaseAuth().finally(() => {
   render();

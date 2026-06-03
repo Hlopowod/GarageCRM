@@ -256,9 +256,14 @@ async function fetchIsCurrentUserAdminAccount(): Promise<boolean> {
   return Boolean(data);
 }
 
-export async function createCheckoutSession(plan: Exclude<PlanKey, 'pit_stop'>, garageId: string): Promise<CheckoutSessionResult> {
+export async function createCheckoutSession(
+  plan: Exclude<PlanKey, 'pit_stop'>,
+  garageId: string,
+  referralCode = '',
+): Promise<CheckoutSessionResult> {
+  const code = String(referralCode || '').trim().toUpperCase();
   const { data, error } = await getSupabaseClient().functions.invoke('create-checkout-session', {
-    body: { plan, garage_id: garageId },
+    body: { plan, garage_id: garageId, referral_code: code || undefined },
   });
   if (error) throw new Error(await getFunctionErrorMessage(error, 'Unable to create checkout session.'));
   const url = String((data as Record<string, unknown>)?.url || '');
