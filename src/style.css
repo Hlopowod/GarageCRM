@@ -829,11 +829,14 @@ tr.clickable:hover td { background: var(--surface2); }
 
 /* ── DETAIL FIELDS ── */
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.detail-item-wide { grid-column: 1 / -1; }
 .detail-item .dl { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
 .detail-item .dv { font-size: 13px; color: var(--text); word-break: break-word; }
 .vehicle-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .vehicle-vin-inline { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: 7px; background: var(--surface2); color: var(--text); font-size: 11px; font-weight: 650; line-height: 1.25; }
 .vehicle-vin-inline span { min-width: 0; overflow-wrap: anywhere; }
+.vehicle-vin-detail { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); font-size: 13px; font-weight: 700; }
+.vehicle-vin-detail span { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; letter-spacing: 0.02em; }
 .copy-icon-btn { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border2); border-radius: 6px; background: var(--surface); color: var(--blue); cursor: pointer; }
 .copy-icon-btn:hover { background: var(--blue-bg); border-color: rgba(29,95,191,0.28); }
 .copy-icon-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }

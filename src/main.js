@@ -2139,6 +2139,27 @@ function renderVehicleVinInline(vehicle) {
   `;
 }
 
+function renderVehicleVinDetail(vehicle) {
+  const vin = String(vehicle?.vin || '').trim();
+  if (!vin) {
+    return '<div class="detail-item detail-item-wide"><div class="dl">VIN</div><div class="dv text-muted">&mdash;</div></div>';
+  }
+  return `
+    <div class="detail-item detail-item-wide">
+      <div class="dl">VIN</div>
+      <div class="vehicle-vin-detail">
+        <span>${escHtml(vin)}</span>
+        <button class="copy-icon-btn" type="button" data-vin="${escHtml(vin)}" onclick="copyVehicleVin(this)" title="Copy VIN" aria-label="Copy VIN">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M5.5 5.5h7v8h-7z"></path>
+            <path d="M3.5 10.5h-1v-8h7v1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function snapshotActiveField(root = document) {
   const active = document.activeElement;
   if (!active) return null;
@@ -2744,6 +2765,7 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
         </div>
         ${vehicle ? `
         <div class="detail-grid">
+          ${renderVehicleVinDetail(vehicle)}
           <div class="detail-item"><div class="dl">Registration</div><div class="dv" style="font-weight:600">${escHtml(vehicle.registration)}</div></div>
           <div class="detail-item"><div class="dl">Make / Model</div><div class="dv">${escHtml(vehicle.make)} ${escHtml(vehicle.model)}</div></div>
           <div class="detail-item"><div class="dl">Year</div><div class="dv">${vehicle.year||'&mdash;'}</div></div>
