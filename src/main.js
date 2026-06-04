@@ -2761,7 +2761,6 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
       <div class="card">
         <div class="vehicle-card-header">
           <div class="card-title">Vehicle</div>
-          ${renderVehicleVinInline(vehicle)}
         </div>
         ${vehicle ? `
         <div class="detail-grid">
