@@ -936,6 +936,8 @@ tr.clickable:hover td { background: var(--surface2); }
 .booking-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .segmented { display: flex; gap: 6px; flex-wrap: wrap; }
 .job-source-panel { background: var(--surface2); border: 0.5px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.job-source-panel-compact { padding: 12px 14px; }
+.job-source-panel-compact .job-source-head { margin-bottom: 0; }
 .job-source-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .job-source-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
 .job-source-summary { background: rgba(255,255,255,0.78); border: 0.5px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 10px 12px; }
@@ -951,10 +953,27 @@ tr.clickable:hover td { background: var(--surface2); }
 .job-booking-card-title span { color: var(--text2); font-weight: 500; margin-left: 4px; }
 .job-booking-card-meta { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.35; }
 .job-booking-card-side { display: flex; align-items: flex-start; }
+.job-direct-picker-shell { margin-bottom: 14px; }
+.job-direct-picker { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.job-picker-column { min-width: 0; display: grid; grid-template-rows: auto auto minmax(150px, 1fr); gap: 8px; padding: 12px; border: 0.5px solid var(--border); border-radius: 10px; background: #fff; box-shadow: 0 6px 18px rgba(15,23,42,0.04); }
+.job-picker-column-head { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 38px; }
+.job-picker-column label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+.job-picker-subtitle { min-width: 0; font-size: 12px; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-picker-badge { flex-shrink: 0; max-width: 126px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 999px; background: #eef2f7; color: #475569; font-size: 11px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-picker-search-input { width: 100%; height: 38px; border: 1px solid var(--border2); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: #fff; color: var(--text); box-shadow: none; }
+.job-picker-search-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29,95,191,0.1); }
+.job-picker-results { display: grid; align-content: start; gap: 6px; min-height: 150px; max-height: 214px; overflow-y: auto; padding: 2px; background: #fff; }
+.job-picker-option { position: relative; width: 100%; min-height: 58px; display: grid; gap: 4px; text-align: left; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); padding: 10px 12px; cursor: pointer; font: inherit; transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease; }
+.job-picker-option:hover,
+.job-picker-option.active { background: #f4f8ff; border-color: rgba(29,95,191,0.4); box-shadow: inset 3px 0 0 var(--blue); }
+.job-picker-title { min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-picker-meta { min-width: 0; font-size: 11px; line-height: 1.35; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-picker-empty { min-height: 58px; display: flex; align-items: center; padding: 10px 12px; color: var(--text2); font-size: 12px; border: 1px dashed rgba(0,0,0,0.14); border-radius: 8px; background: #f8fafc; }
 .typeahead { position: relative; min-width: 0; }
 .typeahead input { width: 100%; }
 .typeahead-results { display: none; position: absolute; z-index: 1200; left: 0; right: 0; top: calc(100% + 5px); max-height: 236px; overflow-y: auto; padding: 6px; border: 0.5px solid var(--border2); border-radius: 10px; background: #fff; box-shadow: 0 14px 34px rgba(15,23,42,0.16); }
 .typeahead:focus-within .typeahead-results { display: grid; gap: 4px; }
+.typeahead.force-open .typeahead-results { display: grid; position: static; gap: 4px; margin-top: 6px; max-height: 176px; box-shadow: none; }
 .typeahead-option { width: 100%; min-height: 48px; display: grid; gap: 2px; text-align: left; border: 0.5px solid transparent; border-radius: 8px; background: transparent; color: var(--text); padding: 8px 10px; cursor: pointer; font: inherit; }
 .typeahead-option:hover,
 .typeahead-option.active { background: #f2f7ff; border-color: rgba(31,95,191,0.22); }
@@ -1236,7 +1255,7 @@ tr.clickable:hover td { background: var(--surface2); }
 }
 
 @media (max-width: 960px) {
-  .metrics, .two-col, .three-col, .form-grid, .form-grid-3, .settings-grid, .settings-category-layout, .booking-flow-grid, .booking-step-strip, .booking-match-grid, .messages-layout, .message-template-grid, .message-stage-grid, .billing-grid, .billing-plan-grid { grid-template-columns: 1fr; }
+  .metrics, .two-col, .three-col, .form-grid, .form-grid-3, .settings-grid, .settings-category-layout, .booking-flow-grid, .booking-step-strip, .booking-match-grid, .job-direct-picker, .messages-layout, .message-template-grid, .message-stage-grid, .billing-grid, .billing-plan-grid { grid-template-columns: 1fr; }
   .admin-header { flex-direction: column; align-items: stretch; }
   .admin-layout,
   .admin-chart-grid,

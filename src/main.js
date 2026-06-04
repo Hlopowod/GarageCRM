@@ -11492,14 +11492,14 @@ function renderJobSourceBookingSummary(booking) {
 
 function renderJobSourcePanel({ mode, booking, sourceBookings }) {
   return `
-    <div class="job-source-panel">
+    <div class="job-source-panel ${mode === 'direct' ? 'job-source-panel-compact' : ''}">
       <div class="job-source-head">
         <div>
           <div class="job-source-title">Job source</div>
         </div>
         <div class="segmented">
-          <button class="btn btn-sm ${mode === 'booking' ? 'btn-primary' : ''}" onclick="showJobModal(null,{mode:'booking'})" type="button">From booking</button>
           <button class="btn btn-sm ${mode === 'direct' ? 'btn-primary' : ''}" onclick="showJobModal(null,{mode:'direct'})" type="button">Direct</button>
+          <button class="btn btn-sm ${mode === 'booking' ? 'btn-primary' : ''}" onclick="showJobModal(null,{mode:'booking'})" type="button">From booking</button>
         </div>
       </div>
       ${mode === 'booking' ? `
@@ -11508,9 +11508,7 @@ function renderJobSourcePanel({ mode, booking, sourceBookings }) {
         ` : `
           <div class="booking-empty compact">No active bookings</div>
         `}
-      ` : `
-        <div class="booking-empty compact">Direct job</div>
-      `}
+      ` : ''}
     </div>
   `;
 }
@@ -11588,35 +11586,43 @@ function getJobVehicleSearchText(vehicle) {
   ].join(' ').toLowerCase();
 }
 
+function getVehiclesForJobClient(clientId) {
+  const cid = parseInt(clientId, 10);
+  if (Number.isNaN(cid)) return [];
+  return state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(cid));
+}
+
 function getJobClientMatches(query = '') {
-  const q = String(query || '').trim().toLowerCase();
+  const q = String(query || '').trim();
   const clients = q
-    ? state.clients.filter(client => getJobClientSearchText(client).includes(q))
+    ? state.clients.filter(client => typeaheadTextMatches(`${getJobClientLabel(client)} ${getJobClientSearchText(client)}`, q))
     : state.clients;
   return clients.slice(0, 8);
 }
 
 function getJobVehicleMatches(query = '', clientId = '') {
-  const q = String(query || '').trim().toLowerCase();
+  const q = String(query || '').trim();
   const cid = parseInt(clientId, 10);
+  if (Number.isNaN(cid) && !q) return [];
   const vehicles = Number.isNaN(cid)
     ? state.vehicles
-    : state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(cid));
-  return (q ? vehicles.filter(vehicle => getJobVehicleSearchText(vehicle).includes(q)) : vehicles).slice(0, 8);
+    : getVehiclesForJobClient(cid);
+  return (q ? vehicles.filter(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, q)) : vehicles).slice(0, 8);
 }
 
 function getAllJobClientMatches(query = '') {
-  const q = String(query || '').trim().toLowerCase();
-  return q ? state.clients.filter(client => getJobClientSearchText(client).includes(q)) : state.clients;
+  const q = String(query || '').trim();
+  return q ? state.clients.filter(client => typeaheadTextMatches(`${getJobClientLabel(client)} ${getJobClientSearchText(client)}`, q)) : state.clients;
 }
 
 function getAllJobVehicleMatches(query = '', clientId = '') {
-  const q = String(query || '').trim().toLowerCase();
+  const q = String(query || '').trim();
   const cid = parseInt(clientId, 10);
+  if (Number.isNaN(cid) && !q) return [];
   const vehicles = Number.isNaN(cid)
     ? state.vehicles
-    : state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(cid));
-  return q ? vehicles.filter(vehicle => getJobVehicleSearchText(vehicle).includes(q)) : vehicles;
+    : getVehiclesForJobClient(cid);
+  return q ? vehicles.filter(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, q)) : vehicles;
 }
 
 function normalizeJobTypeaheadText(value = '') {
@@ -11654,13 +11660,28 @@ function getJobVehicleAutoMatch(query = '', clientId = '') {
   )) || (matches.length === 1 ? matches[0] : null);
 }
 
+function getJobClientFromInputValue(value = '', selectedClientId = '') {
+  const normalized = normalizeJobTypeaheadText(value);
+  if (!normalized) return null;
+  const selectedClient = state.clients.find(client => Number(client.id) === Number(selectedClientId));
+  if (selectedClient) {
+    const selectedLabel = normalizeJobTypeaheadText(getJobClientLabel(selectedClient));
+    if (selectedLabel && normalized.startsWith(selectedLabel)) return selectedClient;
+  }
+  return state.clients.find(client => {
+    const label = normalizeJobTypeaheadText(getJobClientLabel(client));
+    return label && normalized.startsWith(label);
+  }) || getJobClientAutoMatch(value);
+}
+
 function resolveJobClientFromInput() {
   const clientInput = document.getElementById('j-client');
   const selectedId = parseInt(clientInput?.value || '', 10);
   const selectedClient = state.clients.find(client => Number(client.id) === Number(selectedId));
   if (selectedClient) return selectedClient;
   const searchValue = document.getElementById('j-client-search')?.value || '';
-  const matchedClient = state.clients.find(client => typeaheadTextMatches(`${getJobClientLabel(client)} ${getJobClientSearchText(client)}`, searchValue));
+  const matchedClient = getJobClientFromInputValue(searchValue, clientInput?.value || '')
+    || state.clients.find(client => typeaheadTextMatches(`${getJobClientLabel(client)} ${getJobClientSearchText(client)}`, searchValue));
   if (matchedClient && clientInput) clientInput.value = String(matchedClient.id);
   return matchedClient || null;
 }
@@ -11668,15 +11689,13 @@ function resolveJobClientFromInput() {
 function resolveJobVehicleFromInput(clientId = null) {
   const vehicleInput = document.getElementById('j-vehicle');
   const selectedId = parseInt(vehicleInput?.value || '', 10);
-  const selectedVehicle = state.vehicles.find(vehicle => Number(vehicle.id) === Number(selectedId));
-  if (selectedVehicle) return selectedVehicle;
-  const searchValue = document.getElementById('j-vehicle-search')?.value || '';
   const cid = parseInt(clientId, 10);
-  const vehicles = Number.isNaN(cid)
-    ? state.vehicles
-    : state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(cid));
-  const matchedVehicle = vehicles.find(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, searchValue))
-    || state.vehicles.find(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, searchValue));
+  const hasClient = !Number.isNaN(cid);
+  const selectedVehicle = state.vehicles.find(vehicle => Number(vehicle.id) === Number(selectedId));
+  if (selectedVehicle && (!hasClient || Number(selectedVehicle.client_id) === Number(cid))) return selectedVehicle;
+  const searchValue = document.getElementById('j-vehicle-search')?.value || '';
+  const vehicles = hasClient ? getVehiclesForJobClient(cid) : state.vehicles;
+  const matchedVehicle = vehicles.find(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, searchValue));
   if (matchedVehicle && vehicleInput) vehicleInput.value = String(matchedVehicle.id);
   const vehicleSearch = document.getElementById('j-vehicle-search');
   if (matchedVehicle && vehicleSearch) vehicleSearch.dataset.selectedVehicleId = String(matchedVehicle.id);
@@ -11684,23 +11703,42 @@ function resolveJobVehicleFromInput(clientId = null) {
 }
 
 function renderJobClientTypeaheadResults(query = '', selectedClientId = '') {
-  const matches = getJobClientMatches(query);
+  let matches = getJobClientMatches(query);
+  if (!matches.length) {
+    const retainedClient = getJobClientFromInputValue(query, selectedClientId);
+    if (retainedClient) matches = [retainedClient];
+  }
   if (!matches.length) return '<div class="typeahead-empty">No customers match this search</div>';
   return matches.map(client => {
     const active = String(client.id) === String(selectedClientId);
-    const vehicleCount = state.vehicles.filter(vehicle => Number(vehicle.client_id) === Number(client.id)).length;
+    const clientVehicles = getVehiclesForJobClient(client.id);
+    const matchingVehicles = String(query || '').trim()
+      ? clientVehicles.filter(vehicle => typeaheadTextMatches(`${getJobVehicleLabel(vehicle)} ${getJobVehicleSearchText(vehicle)}`, query))
+      : [];
+    const vehicleHint = matchingVehicles.length
+      ? matchingVehicles.slice(0, 2).map(getJobVehicleLabel).join(', ')
+      : `${clientVehicles.length} vehicle${clientVehicles.length === 1 ? '' : 's'}`;
     return `
-      <button type="button" class="typeahead-option ${active ? 'active' : ''}" onclick="setJobClientSelection(${client.id})">
+      <button type="button" class="typeahead-option ${active ? 'active' : ''}" onclick="setJobClientSelection(${client.id}, null, true)">
         <span class="typeahead-title">${escHtml(client.name || 'Customer')}</span>
-        <span class="typeahead-meta">${escHtml([client.phone || 'No phone', client.email || 'No email', `${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'}`].join(' - '))}</span>
+        <span class="typeahead-meta">${escHtml([client.phone || 'No phone', client.email || 'No email', vehicleHint].join(' - '))}</span>
       </button>
     `;
   }).join('');
 }
 
 function renderJobVehicleTypeaheadResults(query = '', clientId = '', selectedVehicleId = '') {
-  const matches = getJobVehicleMatches(query, clientId);
-  if (!matches.length) return '<div class="typeahead-empty">No vehicles match this search</div>';
+  const matches = getJobVehicleMatches(getJobVehiclePickerQuery(query, clientId, selectedVehicleId), clientId);
+  if (!matches.length) {
+    const hasClient = !Number.isNaN(parseInt(clientId, 10));
+    if (!hasClient && !String(query || '').trim()) {
+      return '<div class="typeahead-empty">Select a customer first, or search by registration</div>';
+    }
+    if (hasClient) {
+      return '<div class="typeahead-empty">No vehicles for this customer match this search</div>';
+    }
+    return '<div class="typeahead-empty">No vehicles match this search</div>';
+  }
   return matches.map(vehicle => {
     const active = String(vehicle.id) === String(selectedVehicleId);
     return `
@@ -11712,21 +11750,169 @@ function renderJobVehicleTypeaheadResults(query = '', clientId = '', selectedVeh
   }).join('');
 }
 
+function getJobVehicleOwner(vehicle) {
+  return state.clients.find(client => Number(client.id) === Number(vehicle?.client_id)) || null;
+}
+
+function getJobVehiclePickerQuery(query = '', clientId = '', selectedVehicleId = '') {
+  const hasClient = !Number.isNaN(parseInt(clientId, 10));
+  const trimmedQuery = String(query || '').trim();
+  if (!hasClient) return trimmedQuery;
+  const normalizedQuery = normalizeJobTypeaheadText(query);
+  if (!normalizedQuery) return '';
+  const selectedVehicle = state.vehicles.find(vehicle => String(vehicle.id) === String(selectedVehicleId));
+  const vehiclesToCheck = selectedVehicle ? [selectedVehicle] : getVehiclesForJobClient(clientId);
+  const isSelectedDisplayText = vehiclesToCheck.some(vehicle => {
+    const selectedLabel = normalizeJobTypeaheadText(getJobVehicleLabel(vehicle));
+    const selectedRegistration = normalizeJobTypeaheadText(vehicle.registration);
+    return normalizedQuery === selectedLabel || (selectedVehicle && normalizedQuery === selectedRegistration);
+  });
+  if (isSelectedDisplayText) {
+    return '';
+  }
+  return trimmedQuery;
+}
+
+function renderJobClientPickerResults(query = '', selectedClientId = '') {
+  let matches = getJobClientMatches(query);
+  if (!matches.length) {
+    const retainedClient = getJobClientFromInputValue(query, selectedClientId);
+    if (retainedClient) matches = [retainedClient];
+  }
+  if (!matches.length) return '<div class="job-picker-empty">No customers match this search</div>';
+  return matches.map(client => {
+    const active = String(client.id) === String(selectedClientId);
+    const clientVehicles = getVehiclesForJobClient(client.id);
+    const vehicleHint = `${clientVehicles.length} vehicle${clientVehicles.length === 1 ? '' : 's'}`;
+    return `
+      <button type="button" class="job-picker-option ${active ? 'active' : ''}" onclick="setJobClientSelection(${client.id}, null, true)">
+        <span class="job-picker-title">${escHtml(client.name || 'Customer')}</span>
+        <span class="job-picker-meta">${escHtml([client.phone || 'No phone', client.email || 'No email', vehicleHint].join(' - '))}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+function renderJobVehiclePickerResults(query = '', clientId = '', selectedVehicleId = '', allowGlobalSearch = true) {
+  const q = getJobVehiclePickerQuery(query, clientId, selectedVehicleId);
+  const hasClient = !Number.isNaN(parseInt(clientId, 10));
+  const matches = hasClient ? getJobVehicleMatches(q, clientId) : (allowGlobalSearch && q ? getJobVehicleMatches(q, '') : []);
+  if (!matches.length) {
+    if (hasClient) return '<div class="job-picker-empty">No vehicles for this customer match this search</div>';
+    if (!allowGlobalSearch) return '<div class="job-picker-empty">Select a customer from the left column first</div>';
+    return '<div class="job-picker-empty">Search registration to find the vehicle owner</div>';
+  }
+  return matches.map(vehicle => {
+    const active = String(vehicle.id) === String(selectedVehicleId);
+    const owner = getJobVehicleOwner(vehicle);
+    const vehicleMeta = hasClient
+      ? [vehicle.vin ? `VIN ${vehicle.vin}` : '', vehicle.mileage ? `${fmtDistance(vehicle.mileage)}` : '', vehicle.mot_due ? `MOT ${fmtDate(vehicle.mot_due)}` : ''].filter(Boolean).join(' - ')
+      : [owner?.name || vehicle.client_name || 'Unknown customer', owner?.phone || 'No phone'].filter(Boolean).join(' - ');
+    return `
+      <button type="button" class="job-picker-option ${active ? 'active' : ''}" onclick="setJobVehicleSelection(${vehicle.id})">
+        <span class="job-picker-title">${escHtml(getJobVehicleLabel(vehicle) || 'Vehicle')}</span>
+        <span class="job-picker-meta">${escHtml(vehicleMeta || 'Vehicle details')}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+function renderJobDirectPicker({ initialClientId = '', initialVehicleId = '' } = {}) {
+  const selectedClient = initialClientId
+    ? state.clients.find(client => Number(client.id) === Number(initialClientId))
+    : null;
+  const selectedVehicle = initialVehicleId
+    ? state.vehicles.find(vehicle => Number(vehicle.id) === Number(initialVehicleId))
+    : null;
+  const clientVehicleCount = selectedClient ? getVehiclesForJobClient(selectedClient.id).length : 0;
+  const vehicleTitle = selectedClient ? `Vehicles for ${selectedClient.name || 'customer'}` : 'Vehicle';
+  const vehicleBadge = selectedClient
+    ? `${clientVehicleCount} vehicle${clientVehicleCount === 1 ? '' : 's'}`
+    : 'Search reg';
+  return `
+    <div class="job-direct-picker-shell">
+      <div class="job-direct-picker">
+        <div class="job-picker-column">
+          <div class="job-picker-column-head">
+            <div>
+              <label for="j-client-search">Customer *</label>
+              <div class="job-picker-subtitle">${selectedClient ? escHtml(selectedClient.phone || selectedClient.email || 'Customer selected') : 'Name, phone, email or reg'}</div>
+            </div>
+            <span id="j-client-count" class="job-picker-badge">${selectedClient ? `${clientVehicleCount} vehicle${clientVehicleCount === 1 ? '' : 's'}` : `${state.clients.length} customers`}</span>
+          </div>
+          <input id="j-client-search" class="job-picker-search-input" type="text" autocomplete="off" value="${escHtml(getJobClientLabel(selectedClient))}" placeholder="Search customer..." oninput="updateJobClientSearch(this.value)" onfocus="refreshJobDirectPicker()" />
+          <div id="j-client-results" class="job-picker-results">${renderJobClientPickerResults('', initialClientId || '')}</div>
+        </div>
+        <div class="job-picker-column">
+          <div class="job-picker-column-head">
+            <div>
+              <label for="j-vehicle-search">${escHtml(vehicleTitle)} *</label>
+              <div id="j-vehicle-subtitle" class="job-picker-subtitle">${selectedVehicle ? escHtml(getJobVehicleLabel(selectedVehicle)) : (selectedClient ? 'Customer vehicles' : 'Registration search')}</div>
+            </div>
+            <span id="j-vehicle-count" class="job-picker-badge">${escHtml(vehicleBadge)}</span>
+          </div>
+          <input id="j-vehicle-search" class="job-picker-search-input" type="text" autocomplete="off" value="${escHtml(getJobVehicleLabel(selectedVehicle))}" data-selected-vehicle-id="${initialVehicleId || ''}" placeholder="${selectedClient ? 'Filter this customer vehicles...' : 'Search registration...'}" oninput="updateJobVehicleSearch(this.value)" onfocus="refreshJobDirectPicker()" />
+          <div id="j-vehicle-results" class="job-picker-results">${renderJobVehiclePickerResults('', initialClientId || '', initialVehicleId || '', true)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function refreshJobDirectPicker() {
+  const clientInput = document.getElementById('j-client');
+  const vehicleInput = document.getElementById('j-vehicle');
+  const clientSearch = document.getElementById('j-client-search');
+  const vehicleSearch = document.getElementById('j-vehicle-search');
+  const clientResults = document.getElementById('j-client-results');
+  const vehicleResults = document.getElementById('j-vehicle-results');
+  const clientCount = document.getElementById('j-client-count');
+  const vehicleCount = document.getElementById('j-vehicle-count');
+  const vehicleSubtitle = document.getElementById('j-vehicle-subtitle');
+  if (!clientSearch || !vehicleSearch || !clientResults || !vehicleResults) return;
+  const selectedClient = clientInput?.value
+    ? state.clients.find(client => Number(client.id) === Number(clientInput.value))
+    : null;
+  const typedClient = getJobClientFromInputValue(clientSearch.value, clientInput?.value || '');
+  const effectiveClient = selectedClient || typedClient;
+  const selectedClientId = effectiveClient?.id || '';
+  const selectedVehicleId = vehicleInput?.value || '';
+  if (effectiveClient && clientInput) clientInput.value = String(effectiveClient.id);
+  clientResults.innerHTML = renderJobClientPickerResults(clientSearch.value, selectedClientId);
+  const allowGlobalVehicleSearch = !selectedClientId && !String(clientSearch.value || '').trim();
+  vehicleResults.innerHTML = renderJobVehiclePickerResults(vehicleSearch.value, selectedClientId, selectedVehicleId, allowGlobalVehicleSearch);
+  const clientVehicleCount = selectedClientId ? getVehiclesForJobClient(selectedClientId).length : 0;
+  if (clientCount) {
+    clientCount.textContent = selectedClientId
+      ? `${clientVehicleCount} vehicle${clientVehicleCount === 1 ? '' : 's'}`
+      : `${state.clients.length} customers`;
+  }
+  if (vehicleCount) {
+    vehicleCount.textContent = selectedClientId
+      ? `${clientVehicleCount} vehicle${clientVehicleCount === 1 ? '' : 's'}`
+      : 'Search reg';
+  }
+  if (vehicleSubtitle) {
+    const selectedVehicle = selectedVehicleId ? state.vehicles.find(vehicle => Number(vehicle.id) === Number(selectedVehicleId)) : null;
+    vehicleSubtitle.textContent = selectedVehicle
+      ? getJobVehicleLabel(selectedVehicle)
+      : (effectiveClient ? 'Customer vehicles' : 'Registration search');
+  }
+  vehicleSearch.placeholder = selectedClientId ? 'Filter this customer vehicles...' : 'Search registration...';
+}
+
 function refreshJobClientTypeahead() {
-  const input = document.getElementById('j-client-search');
-  const results = document.getElementById('j-client-results');
-  const clientId = document.getElementById('j-client')?.value || '';
-  if (!input || !results) return;
-  results.innerHTML = renderJobClientTypeaheadResults(input.value, clientId);
+  refreshJobDirectPicker();
 }
 
 function refreshJobVehicleTypeahead() {
-  const input = document.getElementById('j-vehicle-search');
-  const results = document.getElementById('j-vehicle-results');
-  const clientId = document.getElementById('j-client')?.value || '';
-  const vehicleId = document.getElementById('j-vehicle')?.value || '';
-  if (!input || !results) return;
-  results.innerHTML = renderJobVehicleTypeaheadResults(input.value, clientId, vehicleId);
+  refreshJobDirectPicker();
+}
+
+function setJobVehicleChoiceOpen(open) {
+  const vehicleSearch = document.getElementById('j-vehicle-search');
+  const typeahead = vehicleSearch?.closest('.typeahead');
+  if (typeahead) typeahead.classList.toggle('force-open', Boolean(open));
 }
 
 function syncJobMileageInputFromVehicle(vehicle, { force = false } = {}) {
@@ -11737,15 +11923,27 @@ function syncJobMileageInputFromVehicle(vehicle, { force = false } = {}) {
   if (force || currentMileage <= 0) mileageInput.value = String(vehicleMileage);
 }
 
-function setJobClientSelection(clientId, preferredVehicleId = null) {
+function setJobClientSelection(clientId, preferredVehicleId = null, focusVehicle = false) {
   const client = state.clients.find(item => Number(item.id) === Number(clientId));
   const clientInput = document.getElementById('j-client');
   const clientSearch = document.getElementById('j-client-search');
   if (!client || !clientInput || !clientSearch) return;
   clientInput.value = String(client.id);
   clientSearch.value = getJobClientLabel(client);
+  if (!preferredVehicleId) {
+    const vehicleInput = document.getElementById('j-vehicle');
+    const vehicleSearch = document.getElementById('j-vehicle-search');
+    if (vehicleInput) vehicleInput.value = '';
+    if (vehicleSearch) {
+      vehicleSearch.value = '';
+      vehicleSearch.dataset.selectedVehicleId = '';
+    }
+  }
   filterVehiclesForClient(client.id, preferredVehicleId);
-  refreshJobClientTypeahead();
+  if (focusVehicle && !preferredVehicleId && getVehiclesForJobClient(client.id).length > 1) {
+    document.getElementById('j-vehicle-search')?.focus();
+  }
+  refreshJobDirectPicker();
 }
 
 function setJobVehicleSelection(vehicleId) {
@@ -11763,9 +11961,9 @@ function setJobVehicleSelection(vehicleId) {
   vehicleInput.value = String(vehicle.id);
   vehicleSearch.value = getJobVehicleLabel(vehicle);
   vehicleSearch.dataset.selectedVehicleId = String(vehicle.id);
+  setJobVehicleChoiceOpen(false);
   syncJobMileageInputFromVehicle(vehicle);
-  refreshJobClientTypeahead();
-  refreshJobVehicleTypeahead();
+  refreshJobDirectPicker();
 }
 
 function updateJobClientSearch(value) {
@@ -11778,19 +11976,17 @@ function updateJobClientSearch(value) {
     vehicleSearch.value = '';
     vehicleSearch.dataset.selectedVehicleId = '';
   }
-  refreshJobClientTypeahead();
-  refreshJobVehicleTypeahead();
-  const autoClient = getJobClientAutoMatch(value);
-  if (autoClient) setJobClientSelection(autoClient.id);
+  setJobVehicleChoiceOpen(false);
+  refreshJobDirectPicker();
 }
 
 function updateJobVehicleSearch(value = '') {
   const vehicleInput = document.getElementById('j-vehicle');
+  const vehicleSearch = document.getElementById('j-vehicle-search');
   if (vehicleInput) vehicleInput.value = '';
-  refreshJobVehicleTypeahead();
-  const clientId = document.getElementById('j-client')?.value || '';
-  const autoVehicle = getJobVehicleAutoMatch(value || document.getElementById('j-vehicle-search')?.value || '', clientId);
-  if (autoVehicle) setJobVehicleSelection(autoVehicle.id);
+  if (vehicleSearch) vehicleSearch.dataset.selectedVehicleId = '';
+  setJobVehicleChoiceOpen(false);
+  refreshJobDirectPicker();
 }
 
 function showJobModal(jobId = null, optionsOrPresetClientId = null, presetVehicleId = null) {
@@ -11798,7 +11994,7 @@ function showJobModal(jobId = null, optionsOrPresetClientId = null, presetVehicl
   const options = normalizeJobModalOptions(optionsOrPresetClientId, presetVehicleId);
   const sourceBookings = getJobSourceBookings();
   const sourceBooking = j?.booking_id ? getBookingById(j.booking_id) : getDefaultJobSourceBooking(options.bookingId);
-  const mode = j ? (j.booking_id ? 'booking' : 'direct') : (options.mode || (options.bookingId || (!options.presetClientId && sourceBooking) ? 'booking' : 'direct'));
+  const mode = j ? (j.booking_id ? 'booking' : 'direct') : (options.mode || (options.bookingId ? 'booking' : 'direct'));
   const booking = mode === 'booking' ? sourceBooking : null;
   const initialClientId = j?.client_id || booking?.client_id || options.presetClientId || null;
   const initialVehicleId = j?.vehicle_id || booking?.vehicle_id || options.presetVehicleId || null;
@@ -11811,21 +12007,10 @@ function showJobModal(jobId = null, optionsOrPresetClientId = null, presetVehicl
     <h2>${j ? 'Edit Job Card' : 'New Job Card'}</h2>
     ${j ? (j.booking_id ? `<div class="job-source-panel"><div class="job-source-title">From booking</div><div class="text-sm text-muted">${fmtDate(j.booking_date)} ${escHtml(j.booking_time || '')} &middot; ${escHtml(j.booking_reason || '')}</div></div>` : '') : renderJobSourcePanel({ mode, booking, sourceBookings })}
     <input id="j-booking-id" type="hidden" value="${j?.booking_id || booking?.id || ''}" />
+    <input id="j-client" type="hidden" value="${initialClientId || ''}" />
+    <input id="j-vehicle" type="hidden" value="${initialVehicleId || ''}" />
+    ${renderJobDirectPicker({ initialClientId: initialClientId || '', initialVehicleId: initialVehicleId || '' })}
     <div class="form-grid">
-      <div class="form-row"><label>Customer *</label>
-        <input id="j-client" type="hidden" value="${initialClientId || ''}" />
-        <div class="typeahead">
-          <input id="j-client-search" type="text" value="${escHtml(getJobClientLabel(initialClient))}" placeholder="Type name, phone, email or reg..." oninput="updateJobClientSearch(this.value)" onfocus="refreshJobClientTypeahead()" />
-          <div id="j-client-results" class="typeahead-results">${renderJobClientTypeaheadResults('', initialClientId || '')}</div>
-        </div>
-      </div>
-      <div class="form-row"><label>Vehicle *</label>
-        <input id="j-vehicle" type="hidden" value="${initialVehicleId || ''}" />
-        <div class="typeahead">
-          <input id="j-vehicle-search" type="text" value="${escHtml(getJobVehicleLabel(initialVehicle))}" data-selected-vehicle-id="${initialVehicleId || ''}" placeholder="Type registration, make or model..." oninput="updateJobVehicleSearch(this.value)" onfocus="refreshJobVehicleTypeahead()" />
-          <div id="j-vehicle-results" class="typeahead-results">${renderJobVehicleTypeaheadResults('', initialClientId || '', initialVehicleId || '')}</div>
-        </div>
-      </div>
       <div class="form-row"><label>Status</label>
         <select id="j-status">
           ${['New','Diagnosing','Waiting Parts','In Progress','Ready','Completed'].map(s=>`<option ${(j?.status||'New')===s?'selected':''}>${s}</option>`).join('')}
@@ -11850,27 +12035,32 @@ function filterVehiclesForClient(clientId, selectedVehicleId) {
   const sel = document.getElementById('j-vehicle');
   if (!sel) return;
   const cid = parseInt(clientId);
-  const filtered = isNaN(cid) ? state.vehicles : state.vehicles.filter(v => v.client_id === cid);
+  const filtered = isNaN(cid) ? [] : getVehiclesForJobClient(cid);
+  const explicitPreferred = selectedVehicleId !== null && selectedVehicleId !== undefined && String(selectedVehicleId) !== '';
   if (sel.tagName === 'SELECT') {
     sel.innerHTML = '<option value="">Select vehicle…</option>' + filtered.map(v=>`<option value="${v.id}">${escHtml(v.registration)} — ${escHtml(v.make)} ${escHtml(v.model)}</option>`).join('');
   }
-  const preferredVehicleId = selectedVehicleId || sel.dataset.selectedVehicleId;
+  const preferredVehicleId = explicitPreferred ? selectedVehicleId : null;
   if (preferredVehicleId && filtered.some(v => String(v.id) === String(preferredVehicleId))) {
     sel.value = String(preferredVehicleId);
-  } else if (filtered[0]) {
+  } else if (sel.tagName === 'SELECT' && filtered.length === 1) {
     sel.value = String(filtered[0].id);
   } else {
     sel.value = '';
   }
-  syncJobMileageInputFromVehicle(state.vehicles.find(v => String(v.id) === String(sel.value)));
+  const selectedVehicle = state.vehicles.find(v => String(v.id) === String(sel.value));
+  if (selectedVehicle) syncJobMileageInputFromVehicle(selectedVehicle);
   if (sel.tagName !== 'SELECT') {
-    const vehicle = state.vehicles.find(v => String(v.id) === String(sel.value));
     const vehicleSearch = document.getElementById('j-vehicle-search');
     if (vehicleSearch) {
-      vehicleSearch.value = getJobVehicleLabel(vehicle);
+      vehicleSearch.value = getJobVehicleLabel(selectedVehicle);
       vehicleSearch.dataset.selectedVehicleId = sel.value;
+      vehicleSearch.placeholder = !selectedVehicle && filtered.length > 1
+        ? `Choose one of ${filtered.length} vehicles...`
+        : 'Select customer first, or type registration...';
     }
-    refreshJobVehicleTypeahead();
+    setJobVehicleChoiceOpen(!selectedVehicle && filtered.length > 1);
+    refreshJobDirectPicker();
   }
 }
 
