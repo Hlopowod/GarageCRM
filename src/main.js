@@ -73,6 +73,7 @@ let state = {
     field: '',
     direction: 'asc',
   },
+  jobDetailsExpanded: false,
   dashboardDateFilter: 'month',
   reportsDateFilter: 'this-month',
   reportsCustomFrom: '',
@@ -2693,102 +2694,170 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
     normalizeMessageCategoryKey(entry.category) === 'job_completed'
     && (Number(entry.job_card_id ?? entry.jobCardId ?? 0) === Number(job.id) || (getMessageLogRelatedType(entry) === 'job' && getMessageLogRelatedId(entry) === Number(job.id)))
   ));
+  const detailsExpanded = Boolean(state.jobDetailsExpanded);
+  const invoiceActionButton = inv
+    ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>`
+    : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Create invoice</button>`;
   return `
-  <button class="btn back-btn" onclick="backToJobs()">&larr; Back to jobs</button>
-  <div class="two-col job-detail-layout">
-    <div class="job-detail-main">
-      <div class="card">
-        <div class="card-header"><span class="card-title">Labour &amp; Parts</span><button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add line</button></div>
-        ${renderEditableLineEditor(state.jobLines, job.id, { filters: true })}
-        <div class="totals-box">
-          <div class="total-row"><span class="text-muted">Subtotal</span><span id="job-card-subtotal">${fmt(subtotal)}</span></div>
-          ${showVat ? `<div class="total-row"><span class="text-muted">${getVatLabel(vatRate)}</span><span id="job-card-vat">${fmt(vat)}</span></div>` : ''}
-          <div class="total-row grand"><span>Total</span><span id="job-card-total">${fmt(total)}</span></div>
-          <div class="garage-line-breakdown">
-            <div class="garage-line-breakdown-title">Garage breakdown</div>
-            <div class="total-row garage-line-breakdown-row"><span>Labour</span><span id="job-card-labour-total">${fmt(lineBreakdown.labour)}</span></div>
-            <div class="total-row garage-line-breakdown-row"><span>Parts</span><span id="job-card-parts-total">${fmt(lineBreakdown.parts)}</span></div>
-            <div class="total-row garage-line-breakdown-row"><span>Other</span><span id="job-card-other-total">${fmt(lineBreakdown.other)}</span></div>
+  <div class="job-detail-toolbar">
+    <button class="btn back-btn" onclick="backToJobs()">&larr; Back to jobs</button>
+    <div class="job-toolbar-actions">${invoiceActionButton}</div>
+  </div>
+  <div class="job-detail-page">
+    <div class="card job-overview-card">
+      <div class="job-overview-cell job-overview-identity">
+        <div class="job-overview-label">Job #${job.id}</div>
+        <div class="job-overview-vehicle-row">
+          <span class="job-reg-plate">${escHtml(job.registration)}</span>
+          <div class="job-overview-title-wrap">
+            <div class="job-overview-title">${escHtml(job.make)} ${escHtml(job.model)}</div>
+            <div class="job-overview-subtitle">${vehicle?.engine ? escHtml(vehicle.engine) : 'Vehicle details'}</div>
           </div>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-          ${inv ? `<button class="btn btn-primary" onclick="selectInvoice(${inv.id})">View Invoice ${escHtml(inv.invoice_number)}</button>` : `<button class="btn btn-primary" onclick="genInvoice(${job.id})">Generate Invoice</button>`}
-          <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
-          <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
-          <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark Complete</button>
-          <button class="btn" onclick="showJobCompletedSmsModal(${job.id})">Send ready SMS</button>
-        </div>
-        <div class="message-action-meta" style="margin-top:10px">
-          ${readySmsEntry ? StatusBadge(readySmsEntry.status || 'Draft') : renderPill('Not sent', 'gray')}
-          <span class="entity-subtitle">Ready SMS</span>
-          ${!formatAmountForSms(total) ? '<span class="entity-subtitle text-red">Amount due is missing</span>' : ''}
-        </div>
+        ${job.booking_id ? `<div class="job-overview-note">From booking ${fmtDate(job.booking_date)} ${escHtml(job.booking_time || '')}</div>` : ''}
       </div>
-      ${renderJobWorkerPayoutCard(state.jobLines)}
+      <div class="job-overview-cell">
+        <div class="job-overview-label">Status</div>
+        <select class="job-overview-select" onchange="updateJobStatus(${job.id},this.value)">
+          ${['New','Diagnosing','Waiting Parts','In Progress','Ready','Completed','Cancelled'].map(s=>`<option value="${s}" ${job.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="job-overview-cell">
+        <div class="job-overview-label">Customer</div>
+        ${client ? `<div class="job-overview-person"><div class="avatar">${initials(client.name)}</div><div><div class="job-overview-value">${escHtml(client.name)}</div><div class="job-overview-subtitle">${escHtml(client.phone||'')}</div></div></div>` : '<div class="job-overview-value text-muted">No customer</div>'}
+      </div>
+      <div class="job-overview-cell">
+        <div class="job-overview-label">Opened</div>
+        <div class="job-overview-value">${fmtDate(job.date_opened)}</div>
+      </div>
+      <div class="job-overview-cell">
+        <div class="job-overview-label">Mechanic</div>
+        <div class="job-overview-value">${escHtml(job.mechanic||'Unassigned')}</div>
+      </div>
+      <div class="job-overview-cell">
+        <div class="job-overview-label">${getDistanceInLabel()}</div>
+        <div class="job-overview-value">${fmtDistanceValue(syncedMileage)}</div>
+      </div>
+      <div class="job-overview-more">
+        <button
+          id="job-detail-toggle-btn"
+          class="job-more-btn ${detailsExpanded ? 'active' : ''}"
+          type="button"
+          onclick="toggleJobDetailsPanel()"
+          aria-expanded="${detailsExpanded ? 'true' : 'false'}"
+          aria-controls="job-detail-expanded-panel"
+          title="${detailsExpanded ? 'Hide details' : 'Show details'}"
+        >
+          <span class="job-more-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M6 7.5 12 13.5 18 7.5"></path>
+              <path d="M6 13 12 19 18 13"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
     </div>
 
-    <div class="job-detail-sidebar">
-      <div class="card">
-        <div class="flex gap-8" style="justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px">
-          <div><div style="font-size:11px;color:var(--text2)">JOB #${job.id}</div>
-          <div style="font-size:16px;font-weight:500">${escHtml(job.registration)} &mdash; ${escHtml(job.make)} ${escHtml(job.model)}</div>
-          <div class="text-sm text-muted">${escHtml(job.client_name)} &middot; Opened ${fmtDate(job.date_opened)}</div>
-          ${job.booking_id ? `<div class="text-sm text-blue" style="margin-top:4px">From booking ${fmtDate(job.booking_date)} ${escHtml(job.booking_time || '')}</div>` : ''}</div>
-          <div style="text-align:right">
-            <select onchange="updateJobStatus(${job.id},this.value)" style="font-size:12px;padding:4px 8px;border:0.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text)">
-              ${['New','Diagnosing','Waiting Parts','In Progress','Ready','Completed','Cancelled'].map(s=>`<option value="${s}" ${job.status===s?'selected':''}>${s}</option>`).join('')}
-            </select>
-            <div class="text-sm text-muted" style="margin-top:4px">Mechanic: ${escHtml(job.mechanic||'Unassigned')}</div>
+    <div class="job-workspace">
+      <div class="job-work-main">
+        <div class="card job-lines-card">
+          <div class="card-header job-lines-head">
+            <span class="card-title">Labour &amp; Parts</span>
+            <button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add line</button>
+          </div>
+          ${renderEditableLineEditor(state.jobLines, job.id, { filters: true })}
+          <div class="job-lines-add-row">
+            <button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add new line</button>
+          </div>
+          <div class="job-lines-footer">
+            <button class="btn btn-sm">Discount</button>
+            <div class="totals-box job-lines-total-box">
+              <div class="total-row"><span class="text-muted">Subtotal${showVat ? ' (ex. VAT)' : ''}</span><span id="job-card-subtotal">${fmt(subtotal)}</span></div>
+              ${showVat ? `<div class="total-row"><span class="text-muted">${getVatLabel(vatRate)}</span><span id="job-card-vat">${fmt(vat)}</span></div>` : ''}
+              <div class="total-row grand"><span>Total${showVat ? ' (inc. VAT)' : ''}</span><span id="job-card-total">${fmt(total)}</span></div>
+              <div class="garage-line-breakdown">
+                <div class="garage-line-breakdown-title">Garage breakdown</div>
+                <div class="total-row garage-line-breakdown-row"><span>Labour</span><span id="job-card-labour-total">${fmt(lineBreakdown.labour)}</span></div>
+                <div class="total-row garage-line-breakdown-row"><span>Parts</span><span id="job-card-parts-total">${fmt(lineBreakdown.parts)}</span></div>
+                <div class="total-row garage-line-breakdown-row"><span>Other</span><span id="job-card-other-total">${fmt(lineBreakdown.other)}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="job-card-actions">
+            <button class="btn" onclick="updateJobStatus(${job.id},'Ready')">Mark Ready</button>
+            <button class="btn" onclick="markJobReadyAndSendSms(${job.id})">Mark Ready &amp; Send SMS</button>
+            <button class="btn" onclick="updateJobStatus(${job.id},'Completed')">Mark Complete</button>
+            <button class="btn" onclick="showJobCompletedSmsModal(${job.id})">Send ready SMS</button>
+          </div>
+          <div class="message-action-meta" style="margin-top:10px">
+            ${readySmsEntry ? StatusBadge(readySmsEntry.status || 'Draft') : renderPill('Not sent', 'gray')}
+            <span class="entity-subtitle">Ready SMS</span>
+            ${!formatAmountForSms(total) ? '<span class="entity-subtitle text-red">Amount due is missing</span>' : ''}
           </div>
         </div>
-        <div class="form-grid" style="margin-bottom:12px">
-          <div class="form-row"><label>Customer complaint</label><textarea rows="3" onblur="saveJobField(${job.id},'complaint',this.value)">${escHtml(job.complaint||'')}</textarea></div>
-          <div class="form-row"><label>Findings / diagnostics</label><textarea rows="3" onblur="saveJobField(${job.id},'findings',this.value)">${escHtml(job.findings||'')}</textarea></div>
-          <div class="form-row"><label>Work performed</label><textarea rows="2" onblur="saveJobField(${job.id},'work_performed',this.value)">${escHtml(job.work_performed||'')}</textarea></div>
-          <div class="form-row"><label>Mechanic</label><input type="text" value="${escHtml(job.mechanic||'')}" onblur="saveJobField(${job.id},'mechanic',this.value)" /></div>
-          <div class="form-row"><label>${getDistanceInLabel()}</label><input type="number" value="${syncedMileage}" onblur="saveJobFieldNum(${job.id},'mileage_in',this.value)" /></div>
-          <div class="form-row"><label>Est. completion</label><input type="date" value="${job.est_completion||''}" onblur="saveJobField(${job.id},'est_completion',this.value)" /></div>
-        </div>
-        <div class="form-row"><label>Customer notes</label><textarea rows="2" onblur="saveJobField(${job.id},'customer_notes',this.value)">${escHtml(job.customer_notes||'')}</textarea></div>
-        <div class="form-row"><label>Internal notes</label><textarea rows="2" onblur="saveJobField(${job.id},'internal_notes',this.value)">${escHtml(job.internal_notes||'')}</textarea></div>
+        ${renderJobWorkerPayoutCard(state.jobLines)}
       </div>
 
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Customer</div>
-        ${client ? `<div class="flex gap-8"><div class="avatar">${initials(client.name)}</div><div><div style="font-weight:500">${escHtml(client.name)}</div><div class="text-sm text-muted">${escHtml(client.phone||'')} &middot; ${escHtml(client.email||'')}</div></div></div>` : ''}
-      </div>
-
-      <div class="card">
-        <div class="vehicle-card-header">
-          <div class="card-title">Vehicle</div>
+      <div id="job-detail-expanded-panel" class="job-side-panel ${detailsExpanded ? 'is-open' : ''}" ${detailsExpanded ? '' : 'hidden'}>
+        <div class="card job-side-card">
+          <div class="card-header"><span class="card-title">Job details</span></div>
+          <div class="job-side-detail-grid">
+            <div class="detail-item"><div class="dl">Job ID</div><div class="dv">#${job.id}</div></div>
+            <div class="detail-item"><div class="dl">Status</div><select class="job-side-select" onchange="updateJobStatus(${job.id},this.value)">${['New','Diagnosing','Waiting Parts','In Progress','Ready','Completed','Cancelled'].map(s=>`<option value="${s}" ${job.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+            <div class="detail-item"><div class="dl">Opened</div><div class="dv">${fmtDate(job.date_opened)}</div></div>
+            <div class="detail-item"><div class="dl">Mechanic</div><input class="job-side-input" type="text" value="${escHtml(job.mechanic||'')}" onblur="saveJobField(${job.id},'mechanic',this.value)" /></div>
+            <div class="detail-item"><div class="dl">${getDistanceInLabel()}</div><input class="job-side-input" type="number" value="${syncedMileage}" onblur="saveJobFieldNum(${job.id},'mileage_in',this.value)" /></div>
+          </div>
+          <div class="job-side-form">
+            <div class="form-row"><label>Customer complaint</label><textarea rows="2" onblur="saveJobField(${job.id},'complaint',this.value)">${escHtml(job.complaint||'')}</textarea></div>
+            <div class="form-row"><label>Findings / diagnostics</label><textarea rows="2" onblur="saveJobField(${job.id},'findings',this.value)">${escHtml(job.findings||'')}</textarea></div>
+            <div class="form-row"><label>Work performed</label><textarea rows="2" onblur="saveJobField(${job.id},'work_performed',this.value)">${escHtml(job.work_performed||'')}</textarea></div>
+          </div>
         </div>
-        ${vehicle ? `
-        <div class="detail-grid">
-          ${renderVehicleVinDetail(vehicle)}
-          <div class="detail-item"><div class="dl">Registration</div><div class="dv" style="font-weight:600">${escHtml(vehicle.registration)}</div></div>
-          <div class="detail-item"><div class="dl">Make / Model</div><div class="dv">${escHtml(vehicle.make)} ${escHtml(vehicle.model)}</div></div>
-          <div class="detail-item"><div class="dl">Year</div><div class="dv">${vehicle.year||'&mdash;'}</div></div>
-          <div class="detail-item"><div class="dl">Engine</div><div class="dv">${vehicle.engine ? escHtml(vehicle.engine) : '&mdash;'}</div></div>
-          <div class="detail-item"><div class="dl">Fuel</div><div class="dv">${vehicle.fuel_type ? escHtml(vehicle.fuel_type) : '&mdash;'}</div></div>
-          <div class="detail-item"><div class="dl">Colour</div><div class="dv">${vehicle.colour ? escHtml(vehicle.colour) : '&mdash;'}</div></div>
-          <div class="detail-item"><div class="dl">${getDistanceInLabel()}</div><div class="dv">${fmtDistanceValue(syncedMileage)}</div></div>
-          <div class="detail-item"><div class="dl">MOT due</div><div class="dv">${fmtDate(vehicle.mot_due)}</div></div>
+
+        <div class="card job-side-card">
+          <div class="card-header"><span class="card-title">Notes</span></div>
+          <div class="form-row"><label>Customer notes</label><textarea rows="2" onblur="saveJobField(${job.id},'customer_notes',this.value)">${escHtml(job.customer_notes||'')}</textarea></div>
+          <div class="form-row"><label>Internal notes</label><textarea rows="2" onblur="saveJobField(${job.id},'internal_notes',this.value)">${escHtml(job.internal_notes||'')}</textarea></div>
+        </div>
+
+        <div class="card job-side-card">
+          <div class="card-title" style="margin-bottom:10px">Customer</div>
+          ${client ? `<div class="flex gap-8"><div class="avatar">${initials(client.name)}</div><div><div style="font-weight:500">${escHtml(client.name)}</div><div class="text-sm text-muted">${escHtml(client.phone||'')} &middot; ${escHtml(client.email||'')}</div></div></div>` : ''}
+        </div>
+
+        <div class="card job-side-card">
+          <div class="vehicle-card-header">
+            <div class="card-title">Vehicle</div>
+          </div>
+          ${vehicle ? `
+          <div class="detail-grid">
+            ${renderVehicleVinDetail(vehicle)}
+            <div class="detail-item"><div class="dl">Registration</div><div class="dv" style="font-weight:600">${escHtml(vehicle.registration)}</div></div>
+            <div class="detail-item"><div class="dl">Make / Model</div><div class="dv">${escHtml(vehicle.make)} ${escHtml(vehicle.model)}</div></div>
+            <div class="detail-item"><div class="dl">Year</div><div class="dv">${vehicle.year||'&mdash;'}</div></div>
+            <div class="detail-item"><div class="dl">Engine</div><div class="dv">${vehicle.engine ? escHtml(vehicle.engine) : '&mdash;'}</div></div>
+            <div class="detail-item"><div class="dl">Fuel</div><div class="dv">${vehicle.fuel_type ? escHtml(vehicle.fuel_type) : '&mdash;'}</div></div>
+            <div class="detail-item"><div class="dl">Colour</div><div class="dv">${vehicle.colour ? escHtml(vehicle.colour) : '&mdash;'}</div></div>
+            <div class="detail-item"><div class="dl">${getDistanceInLabel()}</div><div class="dv">${fmtDistanceValue(syncedMileage)}</div></div>
+            <div class="detail-item"><div class="dl">MOT due</div><div class="dv">${fmtDate(vehicle.mot_due)}</div></div>
+          </div>` : ''}
+        </div>
+
+        ${inv ? `
+        <div class="card job-side-card">
+          <div class="card-header"><span class="card-title">Invoice</span>${statusBadge(invoiceDisplayStatus)}</div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="dl">Number</div><div class="dv">${escHtml(inv.invoice_number)}</div></div>
+            <div class="detail-item"><div class="dl">Issued</div><div class="dv">${fmtDate(inv.date_issued)}</div></div>
+            <div class="detail-item"><div class="dl">Due</div><div class="dv">${fmtDate(inv.due_date)}</div></div>
+            <div class="detail-item"><div class="dl">Total</div><div class="dv" style="font-weight:500">${fmt(invoiceTotal)}</div></div>
+            ${shouldShowInvoicePaymentRows(inv, invoicePaidAmount) ? `<div class="detail-item"><div class="dl">Paid</div><div class="dv text-green" style="font-weight:500">${fmt(invoicePaidAmount)}</div></div>` : ''}
+            ${invoiceBalanceDue > 0 ? `<div class="detail-item"><div class="dl">Balance due</div><div class="dv text-red" style="font-weight:500">${fmt(invoiceBalanceDue)}</div></div>` : ''}
+          </div>
+          ${invoiceBalanceDue > 0 ? `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="markPaid(${inv.id})">Mark as paid</button>` : ''}
         </div>` : ''}
       </div>
-
-      ${inv ? `
-      <div class="card">
-        <div class="card-header"><span class="card-title">Invoice</span>${statusBadge(invoiceDisplayStatus)}</div>
-        <div class="detail-grid">
-          <div class="detail-item"><div class="dl">Number</div><div class="dv">${escHtml(inv.invoice_number)}</div></div>
-          <div class="detail-item"><div class="dl">Issued</div><div class="dv">${fmtDate(inv.date_issued)}</div></div>
-          <div class="detail-item"><div class="dl">Due</div><div class="dv">${fmtDate(inv.due_date)}</div></div>
-          <div class="detail-item"><div class="dl">Total</div><div class="dv" style="font-weight:500">${fmt(invoiceTotal)}</div></div>
-          ${shouldShowInvoicePaymentRows(inv, invoicePaidAmount) ? `<div class="detail-item"><div class="dl">Paid</div><div class="dv text-green" style="font-weight:500">${fmt(invoicePaidAmount)}</div></div>` : ''}
-          ${invoiceBalanceDue > 0 ? `<div class="detail-item"><div class="dl">Balance due</div><div class="dv text-red" style="font-weight:500">${fmt(invoiceBalanceDue)}</div></div>` : ''}
-        </div>
-        ${invoiceBalanceDue > 0 ? `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="markPaid(${inv.id})">Mark as paid</button>` : ''}
-      </div>` : ''}
     </div>
   </div>`;
 }
@@ -2808,6 +2877,29 @@ function renderLineStatusToggle(line) {
       ${renderLineStatusIcon(status)}
     </button>
   `;
+}
+
+function toggleJobDetailsPanel() {
+  state.jobDetailsExpanded = !state.jobDetailsExpanded;
+  const expanded = Boolean(state.jobDetailsExpanded);
+  const panel = document.getElementById('job-detail-expanded-panel');
+  const button = document.getElementById('job-detail-toggle-btn');
+  if (panel) {
+    if (expanded) {
+      panel.hidden = false;
+      window.requestAnimationFrame(() => panel.classList.add('is-open'));
+    } else {
+      panel.classList.remove('is-open');
+      window.setTimeout(() => {
+        if (!state.jobDetailsExpanded) panel.hidden = true;
+      }, 220);
+    }
+  }
+  if (button) {
+    button.classList.toggle('active', expanded);
+    button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    button.title = expanded ? 'Hide details' : 'Show details';
+  }
 }
 
 function syncLineStatusUi(lineId) {
@@ -9403,7 +9495,7 @@ async function renderJobCard() {
       </div>
 
       <div class="card">
-        <div class="card-header"><span class="card-title">Labour &amp; Parts</span><button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add line</button></div>
+        <div class="card-header"><span class="card-title">Labour &amp; Parts</span></div>
         <table class="line-table">
           <thead><tr><th>Type</th><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th><th class="line-table-status-head"></th><th class="line-table-action-head"></th></tr></thead>
           <tbody id="job-lines-body">
@@ -9419,6 +9511,9 @@ async function renderJobCard() {
           </tr>`).join('')}
           </tbody>
         </table>
+        <div class="job-lines-add-row">
+          <button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add line</button>
+        </div>
         <div class="totals-box">
           <div class="total-row"><span class="text-muted">Subtotal</span><span>${fmt(subtotal)}</span></div>
           <div class="total-row"><span class="text-muted">${getVatLabel(vatRate)}</span><span>${fmt(vat)}</span></div>
@@ -12871,6 +12966,7 @@ async function openClient(clientId) {
 }
 
 function openJob(jobId) {
+  if (state.selectedJob !== jobId) state.jobDetailsExpanded = false;
   state.selectedJob = jobId;
   state.screen = 'jobs';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === 'jobs'));
@@ -12880,6 +12976,7 @@ function openJob(jobId) {
 }
 
 async function backToJobs() {
+  state.jobDetailsExpanded = false;
   state.selectedJob = null;
   state.screen = 'jobs';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.screen === 'jobs'));
@@ -13049,7 +13146,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // expose functions globally for inline handlers
-  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, setReportsSection, updateReportsCustomDate, saveWorkerFromReport, editWorker, cancelWorkerEdit, toggleWorkerActive, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, copyVehicleVin, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobDirectPicker, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, setAdminSection, refreshAdminDashboard, saveAdminReferralCode, editAdminReferralCode, cancelAdminReferralEdit, markAdminReferralCommissionPaid, setBillingReferralCode, render, renderInPlace, retryAppRender, closeModal, state });
+  Object.assign(window, { nav, toggleMobileNav, closeMobileNav, handleNavClick, handleNavPointerDown, setTableSort, openInventory, setInventoryFilter, showInventoryItemModal, refreshInventoryItemPricing, refreshInventoryItemValuePreview, saveInventoryItem, showInventoryMovementModal, saveInventoryMovement, deleteInventoryItem, setMessageFilter, setMessageQuickFilter, sendMessageAction, showSmsComposeModal, sendSmsFromCompose, saveMessageSettings, showTestSmsModal, prefillSmsRecipient, updateSmsComposeTemplate, showCustomerSmsModal, showVehicleSmsModal, showBookingSmsModal, showJobCompletedSmsModal, setJobStatusFilter, setReportsDateFilter, setReportsSection, updateReportsCustomDate, saveWorkerFromReport, editWorker, cancelWorkerEdit, toggleWorkerActive, exportReportCsv, exportReportPdf, printReport, clearReportPrintMode, openClient, openJob, backToJobs, showInvoiceEditor, showInvoiceCreateModal, setInvoiceCreateClient, setInvoiceCreateVehicle, setInvoiceCreateJob, createInvoiceFromDraft, showClientModal, saveClient, deleteClient, syncCloudField, setCloudAuthMode, signUpCloudAccount, verifyCloudEmailCode, resendCloudVerificationCode, signInCloudAccount, sendCloudPasswordReset, completeCloudPasswordReset, signOutCloudAccount, syncAccountToCloud, restoreAccountFromCloud, checkForAppUpdate, installAppUpdate, startBillingCheckout, openBillingPortal, refreshBillingStatus, copyCheckoutLink, copyVehicleVin, lookupDvlaVehicle, showVehicleModal, saveVehicle, deleteVehicle, showJobModal, saveJob, applyBookingToJobModal, refreshJobBookingPicker, updateJobBookingPickerFilter, selectJobSourceBooking, setJobClientSelection, setJobVehicleSelection, updateJobClientSearch, updateJobVehicleSearch, refreshJobDirectPicker, refreshJobClientTypeahead, refreshJobVehicleTypeahead, filterVehiclesForClient, showBookingFlow, updateBookingSearch, setBookingClientMode, selectBookingClient, clearBookingClientSelection, selectBookingVehicle, setBookingVehicleMode, updateBookingDate, chooseBookingTime, saveBookingFlow, setCalendarViewMode, setCalendarSlotInterval, setPastBookingTimesMode, goCalendarToday, togglePastBookingTimes, changeCalendarWeek, handleBookingModalClientChange, handleBookingModalVehicleChange, handleBookingModalDateChange, showBookingModal, saveBooking, cancelBooking, restoreBooking, deleteBooking, setSettingsCategory, saveSettings, saveBookingSettings, setDashboardDateFilter, setClientStatusFilter, setClientVehicleFilter, setClientLastVisitFilter, toggleJobLineSort: toggleJobLineSort, toggleJobDetailsPanel, updateJobStatus, markJobReadyAndSendSms, saveJobField, saveJobFieldNum, addJobLine, addInvoiceLine, saveInvoice, saveInvoiceField, saveInvoiceFieldNum, handleInvoiceStatusChange, previewInvoicePaidAmount, saveInvoicePaidAmount, saveInvoiceEditorToCloud, handleJobLineUnitPriceEnter, clearZeroNumberInput, previewLineNumberInput, updateLine, updateLineNum, setLineType, updateInventoryLineSearch, closeInventoryLineSearch, handleInventoryLineSearchKey, applyInventoryToLine, toggleLineStatus, deleteLine, genInvoice, markPaid, printInvoice, clearPrintMode, selectInvoice, setAdminSection, refreshAdminDashboard, saveAdminReferralCode, editAdminReferralCode, cancelAdminReferralEdit, markAdminReferralCommissionPaid, setBillingReferralCode, render, renderInPlace, retryAppRender, closeModal, state });
 window.saveInventorySettings = saveInventorySettings;
 
 applyRouteFromLocation();
