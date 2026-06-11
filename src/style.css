@@ -705,7 +705,7 @@ tr.clickable:hover td { background: var(--surface2); }
 .job-detail-sidebar { min-width: 0; }
 .job-detail-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .job-toolbar-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.job-detail-page { display: grid; gap: 14px; max-width: 1440px; }
+.job-detail-page { width: 100%; max-width: none; display: grid; gap: 14px; }
 .job-detail-page .card { margin-bottom: 0; }
 .job-overview-card {
   display: grid;
@@ -820,7 +820,7 @@ tr.clickable:hover td { background: var(--surface2); }
   font-size: 12px;
   font-family: inherit;
 }
-.job-lines-card { overflow: hidden; }
+.job-lines-card { width: 100%; overflow: hidden; }
 .job-lines-head { margin-bottom: 18px; }
 .job-lines-add-row {
   display: flex;
@@ -842,9 +842,9 @@ tr.clickable:hover td { background: var(--surface2); }
 .line-editor-header,
 .line-editor-row { display: grid; column-gap: 8px; align-items: center; }
 .line-editor.has-inventory .line-editor-header,
-.line-editor.has-inventory .line-editor-row { grid-template-columns: 64px minmax(145px, 156px) minmax(120px, 1fr) 48px 76px 74px minmax(116px, 136px) 66px; }
+.line-editor.has-inventory .line-editor-row { grid-template-columns: 64px minmax(145px, 156px) minmax(120px, 1fr) 48px 76px 74px minmax(116px, 136px) 80px; }
 .line-editor.no-inventory .line-editor-header,
-.line-editor.no-inventory .line-editor-row { grid-template-columns: 64px minmax(170px, 1fr) 48px 76px 74px minmax(116px, 136px) 66px; }
+.line-editor.no-inventory .line-editor-row { grid-template-columns: 64px minmax(170px, 1fr) 48px 76px 74px minmax(116px, 136px) 80px; }
 .line-editor-header { padding: 0 8px 7px; border-bottom: 0.5px solid var(--border); }
 .line-editor-header span { font-size: 11px; color: var(--text2); font-weight: 400; }
 .line-editor-header-btn { width: 100%; min-width: 0; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 0; border: 0; background: transparent; color: var(--text2); font: inherit; font-size: 11px; font-weight: 400; line-height: 1.2; text-align: left; cursor: pointer; }
@@ -871,9 +871,9 @@ tr.clickable:hover td { background: var(--surface2); }
 .job-worker-total { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 12px; margin-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
 .job-worker-total span { color: var(--text2); font-weight: 650; }
 .job-worker-total strong { font-size: 16px; color: var(--text); }
-.line-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; height: 28px; }
-.line-delete-btn { width: 28px; min-width: 28px; height: 28px; padding: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
-.line-row-pending { background: rgba(250,238,218,0.32); }
+.line-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 76px; height: 34px; }
+.line-delete-btn { width: 32px; min-width: 32px; height: 32px; padding: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+.line-row-pending { background: rgba(250,238,218,0.44); box-shadow: inset 3px 0 0 var(--amber); }
 .line-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .line-table th { font-size: 11px; color: var(--text2); font-weight: 400; padding: 6px 8px; text-align: left; border-bottom: 0.5px solid var(--border); }
 .line-table th.line-table-status-head { text-align: center; white-space: nowrap; width: 1%; }
@@ -922,23 +922,29 @@ tr.clickable:hover td { background: var(--surface2); }
 .line-inventory-result.is-clear { color: var(--blue); font-weight: 600; }
 .line-inventory-empty { padding: 8px; }
 .line-inventory-meta { display: none; }
-.line-status-cell { width: 28px; text-align: center; }
+.line-status-cell { width: 32px; text-align: center; }
 .line-status-toggle {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(133,79,11,0.38);
+  border: 1.5px solid rgba(133,79,11,0.48);
   border-radius: 999px;
-  background: rgba(250,238,218,0.7);
+  background: rgba(255,247,237,0.98);
   color: var(--amber-text);
   cursor: pointer;
-  transition: background 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 2px 8px rgba(133,79,11,0.14);
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
 }
-.line-status-toggle:hover { background: rgba(250,238,218,0.95); }
+.line-status-toggle.is-pending { border-color: rgba(217,119,6,0.72); background: #fff3dc; color: #b45309; }
+.line-status-toggle.is-confirmed { border-color: rgba(59,109,17,0.58); background: #eef8e7; color: #3b6d11; box-shadow: 0 2px 8px rgba(59,109,17,0.12); }
+.line-status-toggle:hover { background: #ffe8bd; border-color: rgba(217,119,6,0.92); box-shadow: 0 4px 12px rgba(133,79,11,0.2); }
+.line-status-toggle.is-confirmed:hover { background: #e1f3d4; border-color: rgba(59,109,17,0.78); box-shadow: 0 4px 12px rgba(59,109,17,0.18); }
 .line-status-toggle:active { transform: scale(0.97); }
-.line-status-toggle svg { width: 14px; height: 14px; display: block; }
+.line-status-toggle svg { width: 17px; height: 17px; display: block; }
+.line-editor-row.line-row-pending .line-field input,
+.line-editor-row.line-row-pending .line-field select { background: #fff9ee; border-color: rgba(133,79,11,0.28); }
 .line-row-pending td { background: rgba(250,238,218,0.62); }
 .line-row-pending td input,
 .line-row-pending td select { background: rgba(255,249,238,0.98); border-color: rgba(133,79,11,0.22); }

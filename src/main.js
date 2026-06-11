@@ -2478,6 +2478,21 @@ function mergeAllJobLinesForJob(jobId, lines = []) {
   ].sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 }
 
+function preserveVisibleLineStatuses(lines = []) {
+  const previousStatuses = new Map();
+  [...(state.allJobLines || []), ...(state.jobLines || []), ...(state.invoiceLines || [])].forEach(line => {
+    const id = Number(line?.id);
+    if (id > 0) previousStatuses.set(id, normalizeLineStatus(line.line_status));
+  });
+  return lines.map(line => {
+    const previousStatus = previousStatuses.get(Number(line?.id));
+    if (previousStatus === 'pending' && normalizeLineStatus(line.line_status) !== 'pending') {
+      return { ...line, line_status: 'pending' };
+    }
+    return line;
+  });
+}
+
 function getAllJobLinesForJob(jobId) {
   const numericJobId = Number(jobId);
   const all = (state.allJobLines || []).filter(line => Number(line.job_id) === numericJobId);
@@ -2590,8 +2605,9 @@ function isCompletedJob(job) {
 async function confirmPendingLinesBeforeStatusChange(jobId, status) {
   if (!PENDING_LINE_CONFIRM_STATUSES.has(status)) return true;
   const lines = await invoke('get_job_lines', { jobId });
-  if (!lines.some(isLinePending)) return true;
-  return confirm('This job has pending lines. Are you sure you want to continue?');
+  const pendingCount = lines.filter(isLinePending).length;
+  if (!pendingCount) return true;
+  return confirm(`This job has ${pendingCount} pending line${pendingCount === 1 ? '' : 's'}. Continue and mark it ${status}?`);
 }
 
 function renderLineStatusIcon(status) {
@@ -2766,9 +2782,6 @@ function renderJobProfileLayout({ job, client, vehicle, inv, subtotal, vatRate, 
             <button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add line</button>
           </div>
           ${renderEditableLineEditor(state.jobLines, job.id, { filters: true })}
-          <div class="job-lines-add-row">
-            <button class="btn btn-sm btn-primary" onclick="addJobLine(${job.id})">+ Add new line</button>
-          </div>
           <div class="job-lines-footer">
             <button class="btn btn-sm">Discount</button>
             <div class="totals-box job-lines-total-box">
@@ -9456,7 +9469,7 @@ function renderJobs() {
 async function renderJobCard() {
   const job = state.jobs.find(j => j.id === state.selectedJob);
   if (!job) return '<p>Job not found</p>';
-  state.jobLines = await invoke('get_job_lines', { jobId: job.id });
+  state.jobLines = preserveVisibleLineStatuses(await invoke('get_job_lines', { jobId: job.id }));
   mergeAllJobLinesForJob(job.id, state.jobLines);
   const subtotal = state.jobLines.reduce((s,l) => s + l.qty * l.unit_price, 0);
   const vatRate = getAppliedVatRate();
@@ -12592,7 +12605,9 @@ function getNewLineFocusId(lineId) {
 async function addJobLine(jobId) {
   const newLine = { id: null, job_id: jobId, inventory_item_id: null, worker_id: null, line_type: DEFAULT_LINE_TYPE, description: '', qty: 1.0, unit_price: 0.0, line_status: 'confirmed' };
   const lineId = await invoke('save_job_line', { line: newLine });
-  state.allJobLines = [...(state.allJobLines || []), { ...newLine, id: lineId }];
+  const savedLine = { ...newLine, id: lineId };
+  state.jobLines = [...(state.jobLines || []), savedLine];
+  state.allJobLines = [...(state.allJobLines || []), savedLine];
   state.selectedJob = jobId;
   state.pendingFocusId = getNewLineFocusId(lineId);
   state.pendingFocusSelectAll = false;
